@@ -1,0 +1,22 @@
+# data file for the Fltk User Interface Designer (fluid)
+version 1.0300 
+header_name {.h} 
+code_name {.cxx}
+Function {} {open
+} {
+  Fl_Window {} {
+    label {Highlight test} open
+    xywh {682 90 400 400} type Double resizable visible
+  } {
+    Fl_Box {} {selected
+      xywh {25 25 60 41} resizable
+    }
+    Fl_Text_Editor {} {
+      xywh {10 10 380 350}
+    }
+    Fl_Button {} {
+      label {&Close}
+      xywh {300 365 90 25}
+    }
+  }
+} 
