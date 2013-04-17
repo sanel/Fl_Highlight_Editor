@@ -25,6 +25,6 @@ test/example: test/example.o $(TARGET_LIB)
 test/repl: test/repl.o $(TARGET_LIB)
 
 clean:
-	@rm -f $(TARGET_LIB)
-	@rm -f src/*.o src/ts/*.o test/*.o
-	@rm -f $(TESTS)
+	rm -f $(TARGET_LIB)
+	rm -f src/*.o src/ts/*.o test/*.o
+	rm -f $(TESTS)

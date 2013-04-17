@@ -27,5 +27,7 @@ int main(int argc, char **argv) {
 		bb->callback(close_cb, win);
 	win->end();
 	win->show(argc, argv);
-	return Fl::run();
+	int ret = Fl::run();
+	delete editor;
+	return ret;
 }

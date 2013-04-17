@@ -1,7 +1,14 @@
 
+;; TODO: many of these functions can be easily implemented as C routines
+
 (define-macro (let1 a b . body)
   `(let ([,a ,b])
      ,@body))
+
+(define-macro (if-let1 a b . body)
+  `(let ([,a ,b])
+	 (if ,a
+	   ,@body)))
 
 (define (take n lst)
   (if (or (equal? lst '())

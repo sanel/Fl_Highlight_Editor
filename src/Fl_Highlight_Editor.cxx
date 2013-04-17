@@ -1,3 +1,22 @@
+/*
+ * Fl_Highlight_Editor - extensible text editing
+ * Copyright (c) 2013 Sanel Zukan.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this library. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <time.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,28 +37,129 @@
 
 extern int FL_NORMAL_SIZE; /* default FLTK font size */
 
+typedef Fl_Text_Display::Style_Table_Entry StyleTable;
+
+enum {
+	CONTEXT_TYPE_INITIAL,
+	CONTEXT_TYPE_TO_EOL,
+	CONTEXT_TYPE_BLOCK,
+	CONTEXT_TYPE_REGEX,
+	CONTEXT_TYPE_EXACT,
+	CONTEXT_TYPE_LAST  /* used to determine end of type list */
+};
+
+/*
+ * This is table where are are stored rules for syntax highlighting. Syntax highlighting is done
+ * by applying a couple of strategies:
+ * 
+ *  1) block matching - done by searching strings designated block start and end. Block matching is
+ *     used for (example) block comments and will behave like Vim - if block start was found but not block end,
+ *     the whole buffer from that position will be painted in given face.
+ *
+ *  2) regex matching - regex is first compiled and matched against the whole buffer. Founded chunks will be
+ *     painted on the same position in StyleTable buffer. No regex grouping is considered as is not useful here.
+ *
+ *  3) exact matching - again done against the whole buffer, where exact string is searched for. Mainly useful for
+ *     content where regex engine is expensive or for the cases where special characters are involved so escaping
+ *     is not needed.
+ *
+ * When painting is started, we scan ContextTable and for every matched type, we paint with given character found
+ * match position in StyleTable buffer. To understaind how this works, see Fl_Text_Display documentation and how syntax
+ * highlighting was done.
+ */
+struct ContextTable {
+	char chr;
+	int  type; /* TODO: make it 'char' */
+
+	/* FIXME: only pointer to scheme symbol; will it be GC-ed at some point? */
+	const char *face;
+
+	union {
+		regex_t    *rx;
+		const char *block[2];
+		const char *exact;
+	} object;
+
+	ContextTable *next, *last;
+};
+
 struct Fl_Highlight_Editor_P {
 	scheme scm;
 	char   *script_path;
 
 	Fl_Text_Buffer *stylebuf;
+	StyleTable     *styletable;
+	ContextTable   *ctable;
 
-	Fl_Text_Display::Style_Table_Entry *styletable;
-	int styletable_size;
+	int styletable_size; /* size of styletable */
+	int styletable_cur;  /* current item in styletable */
 
 	Fl_Highlight_Editor_P();
+
+	void push_style(int color, int font, int size);
+	void push_context(int type, pointer content, const char *face);
 };
 
 Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
-	script_path = NULL;
-	stylebuf = NULL;
-	styletable_size = 1;
+	script_path  = NULL;
+	stylebuf     = NULL;
+	styletable   = NULL;
+	ctable       = NULL;
+	styletable_size = styletable_cur = 0;
 
-	/* A - plain */
-	styletable = new Fl_Text_Display::Style_Table_Entry[styletable_size];
-	styletable[0].color = FL_BLACK;
-	styletable[0].font = FL_COURIER;
-	styletable[0].size = FL_NORMAL_SIZE;
+	push_style(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
+}
+
+void Fl_Highlight_Editor_P::push_style(int color, int font, int size) {
+	/* grow if needed */
+	if(styletable_cur >= styletable_size) {
+		if(!styletable_size) {
+			styletable_size = 3;
+			styletable = new StyleTable[styletable_size];
+		} else {
+			StyleTable *old = styletable;
+
+			styletable_size *= 2;
+			styletable = new StyleTable[styletable_size];
+
+			for(int i = 0; i < styletable_cur; i++)
+				styletable[i] = old[i];
+
+			delete [] old;
+		}
+	}
+
+	styletable[styletable_cur].color = color;
+	styletable[styletable_cur].font  = font;
+	styletable[styletable_cur].size  = size;
+
+	styletable_cur++;
+}
+
+void Fl_Highlight_Editor_P::push_context(int type, pointer content, const char *face) {
+	ContextTable *t = new ContextTable();
+	t->chr = 'A';
+	t->face = face;
+	t->type = type;
+	t->next = NULL;
+
+	if(!ctable) {
+		ctable = t;
+	} else {
+		/* increase character from whatever was set previously */
+		t->chr = ctable->last->chr++;
+
+		/* expected to be in range 'A' - 'z' */
+		if(t->chr > 123) {
+			puts("Exceeded limit of allowed faces");
+			delete t;
+			return;
+		}
+
+		ctable->last->next = t;
+	}
+
+	ctable->last = t;
 }
 
 #define SCHEME_RET_IF_FAIL(scm, expr, str)      \
@@ -202,10 +322,21 @@ Fl_Highlight_Editor::Fl_Highlight_Editor(int X, int Y, int W, int H, const char 
 }
 
 Fl_Highlight_Editor::~Fl_Highlight_Editor() {
+	puts("~Fl_Highlight_Editor");
 	if(!priv) return;
 
 	if(priv->script_path) free(priv->script_path);
-	scheme_deinit(&(priv->scm));
+	scheme *pscm = &(priv->scm);
+	scheme_deinit(pscm);
+
+	if(priv->ctable) {
+		ContextTable *it, *nx;
+		for(it = priv->ctable; it; it = nx) {
+			printf("removing: %s face\n", it->face);
+			nx = it->next;
+			delete it;
+		}
+	}
 
 	delete [] priv->styletable;
 	delete priv->stylebuf;
@@ -216,6 +347,7 @@ Fl_Highlight_Editor::~Fl_Highlight_Editor() {
 void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_repl) {
 	if(priv) return;
 
+	clock_t started = clock();
 	char buf[PATH_MAX];
 	FILE *fd;
 
@@ -231,8 +363,10 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	scheme_set_output_port_file(pscm, stdout);
 
 	/* make *load-path* first */
-	pointer load_path = pscm->vptr->cons(pscm, pscm->vptr->mk_string(pscm, script_folder), pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*load-path*", load_path);
+	pointer ptr = pscm->vptr->cons(pscm, pscm->vptr->mk_string(pscm, script_folder), pscm->NIL);
+	SCHEME_DEFINE_VAR(pscm, "*load-path*", ptr);
+
+	SCHEME_DEFINE_VAR(pscm, "*editor-style-table*", pscm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
 	init_scheme_prelude(pscm, script_folder);
@@ -252,7 +386,11 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 		fclose(fd);
 	}
 
-	if(do_repl) scheme_load_named_file(pscm, stdin, 0);
+	float diff = (((float)clock() - (float)started) / CLOCKS_PER_SEC) * 1000;
+	printf("Interpreter booted in %4.1fms.\n", diff);
+
+	if(do_repl)
+		scheme_load_named_file(pscm, stdin, 0);
 }
 
 const char *Fl_Highlight_Editor::script_folder(void) {
@@ -266,32 +404,44 @@ int Fl_Highlight_Editor::handle(int e) {
 	return ret;
 }
 
-static void style_unfinished_cb(int, void*) {}
 
-static void style_update(int pos,
-						 int ninserted,
-						 int ndeleted,
-						 int  /*nrestyled*/,
-						 const char * /*deletedtext*/,
-						 void *data)
-{
+void style_unfinished_cb(int, void*) {}
+
+static void style_update(int pos, int ninserted, int ndeleted, int  /*nrestyled*/, const char * /*deletedtext*/, void *data) {
 	printf("inserted: %i deleted: %i pos: %i\n", ninserted, ndeleted, pos);
 }
 
-/*
- * initial paint; first load *editor-current-mode* from interpreter and try to get as much information
- * as possible, like comments, keywords and etc.
- */
-static void style_init(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf) {
-	char *style = new char[buf->length() + 1];
-
-	/* setup default style */
-	memset(style, 'A', buf->length());
-	style[buf->length()] = '\0';
-
-	/* get from interpreter details */
+static pointer load_style_table(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf) {
 	scheme *s = &(priv->scm);
-	pointer curmode = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-current-mode*"));
+	pointer tp, f, v, style_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-style-table*"));
+	char *face;
+
+	for(pointer it = style_table; it != s->NIL; it = s->vptr->pair_cdr(it)) {
+		v = s->vptr->pair_car(it);
+
+		if(!s->vptr->is_vector(v))
+			continue;
+
+		if(s->vptr->vector_length(v) != 3) {
+			printf("Expected vector len of 3 but got len '%i'\n", s->vptr->vector_length(v));
+			continue;
+		}
+
+		/* fetch type */
+		tp = s->vptr->vector_elem(v, 0);
+		if(!s->vptr->is_integer(tp))
+			continue;
+
+		/* fetch face; we limit ourself face must be either symbol or string */
+		f = s->vptr->vector_elem(v, 2);
+		if(!s->vptr->is_symbol(f) && !s->vptr->is_string(f))
+			continue;
+
+		face = s->vptr->is_symbol(f) ? s->vptr->symname(f) : s->vptr->string_value(f);
+		priv->push_context(s->vptr->ivalue(tp), s->vptr->vector_elem(v, 1), face);
+	}
+
+	return s->T;
 }
 
 void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
@@ -303,10 +453,12 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 
 	if(!priv)
 		return;
-	
+
+	load_style_table(priv, buf);
+#if 0	
 	/* initialize style */
-	style_init(priv, buf);
-#if 0
+	//style_init(priv, buf);
+
 	char *style = new char[buf->length() + 1];
 	memset(style, 'A', buf->length());
 	style[buf->length()] = '\0';
