@@ -85,4 +85,9 @@
 	#(1 "//"           'comment-face)
 	#(1 "||"           'comment-face)
 	#(2 '("/*" . "*/") 'comment-face)
-	#(3 "begin|end|doo|boo|moo|coo" 'keyword-face)))
+	#(3 "static|return" 'keyword-face)))
+
+(set! *editor-face-table*
+  '(#(default-face 56  12 0)
+	#(comment-face 216 12 0)
+	#(keyword-face 60  12 0)))

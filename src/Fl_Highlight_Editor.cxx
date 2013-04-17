@@ -1,5 +1,5 @@
 /*
- * Fl_Highlight_Editor - extensible text editing
+ * Fl_Highlight_Editor - extensible text editing widget
  * Copyright (c) 2013 Sanel Zukan.
  *
  * This library is free software; you can redistribute it and/or
@@ -69,8 +69,8 @@ enum {
  */
 struct ContextTable {
 	char chr;
-	int  type; /* TODO: make it 'char' */
-
+	/* FIXME: 'char' also can be used */
+	int  type;
 	/* FIXME: only pointer to scheme symbol; will it be GC-ed at some point? */
 	const char *face;
 
@@ -97,14 +97,14 @@ struct Fl_Highlight_Editor_P {
 	Fl_Highlight_Editor_P();
 
 	void push_style(int color, int font, int size);
-	void push_context(int type, pointer content, const char *face);
+	void push_context(scheme *s, int type, pointer content, const char *face);
 };
 
 Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
-	script_path  = NULL;
-	stylebuf     = NULL;
-	styletable   = NULL;
-	ctable       = NULL;
+	script_path = NULL;
+	stylebuf    = NULL;
+	styletable  = NULL;
+	ctable      = NULL;
 	styletable_size = styletable_cur = 0;
 
 	push_style(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
@@ -132,16 +132,19 @@ void Fl_Highlight_Editor_P::push_style(int color, int font, int size) {
 	styletable[styletable_cur].color = color;
 	styletable[styletable_cur].font  = font;
 	styletable[styletable_cur].size  = size;
-
 	styletable_cur++;
 }
 
-void Fl_Highlight_Editor_P::push_context(int type, pointer content, const char *face) {
+void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, const char *face) {
 	ContextTable *t = new ContextTable();
 	t->chr = 'A';
 	t->face = face;
 	t->type = type;
 	t->next = NULL;
+
+#define FREE_AND_RETURN(o)	\
+	delete o;			    \
+	return;
 
 	if(!ctable) {
 		ctable = t;
@@ -150,13 +153,69 @@ void Fl_Highlight_Editor_P::push_context(int type, pointer content, const char *
 		t->chr = ctable->last->chr++;
 
 		/* expected to be in range 'A' - 'z' */
-		if(t->chr > 123) {
+		if(t->chr > 'z') {
 			puts("Exceeded limit of allowed faces");
-			delete t;
-			return;
+			FREE_AND_RETURN(t);
 		}
 
 		ctable->last->next = t;
+	}
+
+	switch(type) {
+		case CONTEXT_TYPE_INITIAL:
+		case CONTEXT_TYPE_LAST:
+			break;
+		case CONTEXT_TYPE_REGEX: {
+			if(!s->vptr->is_string(content)) {
+				puts("Pattern must be a string");
+				FREE_AND_RETURN(t);
+			}
+
+			regex_t *rx = (regex_t*)malloc(sizeof(regex_t));
+			const char *p = (const char*)s->vptr->string_value(content);
+
+			if(!regcomp(rx, p, REG_EXTENDED | REG_NOSUB)) {
+				printf("Failed to compile pattern '%s'\n", p);
+				free(rx);
+				FREE_AND_RETURN(t);
+			}
+
+			t->object.rx = rx;
+			break;
+		}
+
+		case CONTEXT_TYPE_TO_EOL:
+		case CONTEXT_TYPE_EXACT: {
+			if(!s->vptr->is_string(content)) {
+				puts("Exact value must be a string");
+				FREE_AND_RETURN(t);
+			}
+
+			/* FIXME: strdup()? */
+			t->object.exact = (const char*)s->vptr->string_value(content);
+			break;
+		}
+
+		case CONTEXT_TYPE_BLOCK: {
+			if(!s->vptr->is_pair(content)) {
+				puts("Block must be block type");
+				FREE_AND_RETURN(t);
+			}
+
+			pointer start = s->vptr->pair_car(content);
+			pointer end = s->vptr->pair_cdr(content);
+
+			if(!s->vptr->is_string(start) || !s->vptr->is_string(end)) {
+				puts("Block tokens must be string type");
+				FREE_AND_RETURN(t);
+			}
+
+			/* FIXME: strdup()? */
+			t->object.block[0] = s->vptr->string_value(start);
+			t->object.block[1] = s->vptr->string_value(end);
+		}
+
+		default: break;
 	}
 
 	ctable->last = t;
@@ -325,7 +384,9 @@ Fl_Highlight_Editor::~Fl_Highlight_Editor() {
 	puts("~Fl_Highlight_Editor");
 	if(!priv) return;
 
-	if(priv->script_path) free(priv->script_path);
+	if(priv->script_path)
+		free(priv->script_path);
+
 	scheme *pscm = &(priv->scm);
 	scheme_deinit(pscm);
 
@@ -334,6 +395,9 @@ Fl_Highlight_Editor::~Fl_Highlight_Editor() {
 		for(it = priv->ctable; it; it = nx) {
 			printf("removing: %s face\n", it->face);
 			nx = it->next;
+
+			if(it->type == CONTEXT_TYPE_REGEX)
+				regfree(it->object.rx);
 			delete it;
 		}
 	}
@@ -367,6 +431,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	SCHEME_DEFINE_VAR(pscm, "*load-path*", ptr);
 
 	SCHEME_DEFINE_VAR(pscm, "*editor-style-table*", pscm->NIL);
+	SCHEME_DEFINE_VAR(pscm, "*editor-face-table*", pscm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
 	init_scheme_prelude(pscm, script_folder);
@@ -411,7 +476,7 @@ static void style_update(int pos, int ninserted, int ndeleted, int  /*nrestyled*
 	printf("inserted: %i deleted: %i pos: %i\n", ninserted, ndeleted, pos);
 }
 
-static pointer load_style_table(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf) {
+static pointer load_style_table(Fl_Highlight_Editor_P *priv) {
 	scheme *s = &(priv->scm);
 	pointer tp, f, v, style_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-style-table*"));
 	char *face;
@@ -438,10 +503,16 @@ static pointer load_style_table(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf
 			continue;
 
 		face = s->vptr->is_symbol(f) ? s->vptr->symname(f) : s->vptr->string_value(f);
-		priv->push_context(s->vptr->ivalue(tp), s->vptr->vector_elem(v, 1), face);
+		priv->push_context(s,
+						   s->vptr->ivalue(tp),
+						   s->vptr->vector_elem(v, 1),
+						   face);
 	}
 
 	return s->T;
+}
+
+static pointer load_face_table(Fl_Highlight_Editor_P *priv) {
 }
 
 void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
@@ -454,7 +525,8 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 	if(!priv)
 		return;
 
-	load_style_table(priv, buf);
+	load_style_table(priv);
+	load_face_table(priv);
 #if 0	
 	/* initialize style */
 	//style_init(priv, buf);
