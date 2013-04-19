@@ -1,0 +1,20 @@
+-*- org -*-
+
+* Known bugs [0/3]
+  - [ ] Block handling isn't good: if block is in multiple lines, due
+    how optimized repaint routine hi_update() works, it will only
+    match the first line since hi_update() will send only modified
+    chunks of text, and often block start will not be in those
+
+  - [ ] Repaint to previous state: for example, open block comment
+    (for C code), the whole text up to the EOF will be painted with
+    comment-face (or anything assigned to it). When block comment was
+    closed, some text will still have commented colors, even if it
+    isn't inside block.
+
+  - [ ] TinyScheme GC can leak some memory. Valgrind reports only
+    indirect loss, so I'm not sure how serious this is. This problem
+    can be solved by using scheme_init_custom_alloc() and tracking
+    malloc/free calls, where the rest will be free-ed in widget destructor.
+	
+* Unknown bugs please report on https://github.com/sanel/Fl_Highlight_Editor/issues

@@ -25,6 +25,9 @@
 /** Set to 1 if you have or going to use POSIX regex as matching engine. */
 #define USE_POSIX_REGEX 1
 
+/** Set to 1 if you want assert() be used for internal checks. */
+#define USE_ASSERT 1
+
 struct Fl_Highlight_Editor_P;
 
 /**
@@ -56,9 +59,6 @@ public:
 	 */
 	const char *script_folder(void);
 
-	/** Overriden Fl_Text_Editor method for handling events. */
-	int handle(int event);
-
 	/**
 	 * Assign Fl_Text_Buffer object. This function behaves exactly the same as Fl_Text_Editor::buffer(), execept
 	 * it will additionally initialize style buffer.
@@ -67,6 +67,9 @@ public:
 
 	/** Return currently set Fl_Text_Buffer object. */
 	Fl_Text_Buffer *buffer(void) { return Fl_Text_Editor::buffer(); }
+
+	/** Overriden Fl_Text_Editor method for handling events. */
+	int handle(int event);
 };
 
 #endif

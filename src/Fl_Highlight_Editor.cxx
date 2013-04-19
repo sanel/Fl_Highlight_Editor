@@ -19,7 +19,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -31,12 +30,20 @@
 #undef cons
 #undef immutable_cons
 
+#if USE_ASSERT
+# include <assert.h>
+# define ASSERT(s) assert(s)
+#else
+# define ASSERT(s)
+#endif
+
 #if USE_POSIX_REGEX
 # include <sys/types.h>
 # include <regex.h>
 #endif
 
 #define DEFAULT_FACE "default-face"
+#define STR_CMP(s1, s2) (strcmp((s1), (s2)) == 0)
 
 extern int FL_NORMAL_SIZE; /* default FLTK font size */
 typedef Fl_Text_Display::Style_Table_Entry StyleTable;
@@ -100,7 +107,7 @@ struct Fl_Highlight_Editor_P {
 	ContextTable   *ctable;
 
 	int styletable_size; /* size of styletable */
-	int styletable_cur;  /* current item in styletable */
+	int styletable_last; /* last item in styletable */
 
 	Fl_Highlight_Editor_P();
 
@@ -109,149 +116,7 @@ struct Fl_Highlight_Editor_P {
 	void push_context(scheme *s, int type, pointer content, const char *face);
 };
 
-Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
-	script_path = NULL;
-	self        = NULL;
-	stylebuf    = NULL;
-	styletable  = NULL;
-	ctable      = NULL;
-	styletable_size = styletable_cur = 0;
-
-	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
-}
-
-int Fl_Highlight_Editor_P::push_style(int color, int font, int size) {
-	/* grow if needed */
-	if(styletable_cur >= styletable_size) {
-		if(!styletable_size) {
-			styletable_size = 3;
-			styletable = new StyleTable[styletable_size];
-		} else {
-			StyleTable *old = styletable;
-
-			styletable_size *= 2;
-			styletable = new StyleTable[styletable_size];
-
-			for(int i = 0; i < styletable_cur; i++)
-				styletable[i] = old[i];
-
-			delete [] old;
-		}
-	}
-
-	styletable[styletable_cur].color = color;
-	styletable[styletable_cur].font  = font;
-	styletable[styletable_cur].size  = size;
-
-	/* returns valid position, then increase it */
-	return styletable_cur++;
-}
-
-void Fl_Highlight_Editor_P::push_style_default(int color, int font, int size) {
-	if(!styletable_size)
-		push_style(color, font, size);
-	else {
-		styletable[0].color = color;
-		styletable[0].font = font;
-		styletable[0].size = size;
-	}
-}
-
-#define FREE_AND_RETURN(o)	\
-	delete o;			    \
-	return;
-
-void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, const char *face) {
-	ContextTable *t = new ContextTable();
-	t->chr = 'A';
-	t->pos = -1;
-	t->face = face;
-	t->type = type;
-	t->next = NULL;
-
-	if(!ctable) {
-		ctable = t;
-	} else {
-		bool found = false;
-
-		/* first see if we already have this face, and if not, increase char painter */
-		for(ContextTable *it = ctable; it; it = it->next) {
-			if(strcmp(face, it->face) == 0) {
-				t->chr = it->chr;
-				found = true;
-				break;
-			}
-		}
-
-		if(!found)
-			t->chr = ctable->last->chr + 1;
-
-		printf("Registering %s: %c\n", t->face, t->chr);
-		ctable->last->next = t;
-	}
-
-	switch(type) {
-		case CONTEXT_TYPE_INITIAL:
-		case CONTEXT_TYPE_LAST:
-			break;
-		case CONTEXT_TYPE_REGEX: {
-#if USE_POSIX_REGEX
-			if(!s->vptr->is_string(content)) {
-				puts("Pattern must be a string");
-				FREE_AND_RETURN(t);
-			}
-
-			regex_t    *rx = (regex_t*)malloc(sizeof(regex_t));
-			const char *p  = (const char*)s->vptr->string_value(content);
-
-			if(regcomp(rx, p, REG_EXTENDED | REG_NEWLINE) != 0) {
-				printf("Failed to compile pattern '%s'\n", p);
-				free(rx);
-				FREE_AND_RETURN(t);
-			}
-
-			t->object.rx = rx;
-#endif
-			break;
-		}
-
-		case CONTEXT_TYPE_TO_EOL:
-		case CONTEXT_TYPE_EXACT: {
-			if(!s->vptr->is_string(content)) {
-				puts("Exact value must be a string");
-				FREE_AND_RETURN(t);
-			}
-
-			/* FIXME: strdup()? */
-			t->object.exact = (const char*)s->vptr->string_value(content);
-			break;
-		}
-
-		case CONTEXT_TYPE_BLOCK: {
-			if(!s->vptr->is_pair(content)) {
-				puts("Block must be block type");
-				FREE_AND_RETURN(t);
-			}
-
-			pointer start = s->vptr->pair_car(content);
-			pointer end = s->vptr->pair_cdr(content);
-
-			if(!s->vptr->is_string(start) || !s->vptr->is_string(end)) {
-				puts("Block tokens must be string type");
-				FREE_AND_RETURN(t);
-			}
-
-			/* FIXME: strdup()? */
-			t->object.block[0] = s->vptr->string_value(start);
-			t->object.block[1] = s->vptr->string_value(end);
-		}
-
-		default: break;
-	}
-
-
-	ctable->last = t;
-}
+/* first some scheme functions we export */
 
 #define SCHEME_RET_IF_FAIL(scm, expr, str)      \
   do {                                          \
@@ -316,17 +181,17 @@ static pointer _rx_compile(scheme *s, pointer args) {
 			sym = s->vptr->symname(o);
 
 			/* tinyscheme always make symbols as lowercase */
-			if(strcmp(sym, "rx_extended") == 0) {
+			if(STR_CMP(sym, "rx_extended")) {
 			  flags |= REG_EXTENDED;
 			  continue;
 			}
 
-			if(strcmp(sym, "rx_ignore_case") == 0) {
+			if(STR_CMP(sym, "rx_ignore_case")) {
 			  flags |= REG_ICASE;
 			  continue;
 			}
 
-			if(strcmp(sym, "rx_newline") == 0) {
+			if(STR_CMP(sym, "rx_newline")) {
 			  flags |= REG_NEWLINE;
 			  continue;
 			}
@@ -352,7 +217,7 @@ static pointer _rx_type(scheme *s, pointer args) {
 	arg = s->vptr->pair_car(args);
 	if(s->vptr->is_opaque(arg)) {
 		const char *tag = s->vptr->opaquetag(arg);
-		ret = (tag && (strcmp(tag, "REGEX") == 0));
+		ret = (tag && STR_CMP(tag, "REGEX"));
 	}
 
 	return ret ? s->T : s->F;
@@ -405,6 +270,138 @@ static void init_scheme_prelude(scheme *scm, const char *script_folder) {
 #if USE_POSIX_REGEX
 	init_regex(scm);
 #endif
+}
+
+/* core widget code */
+
+Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
+	script_path = NULL;
+	self        = NULL;
+	stylebuf    = NULL;
+	styletable  = NULL;
+	ctable      = NULL;
+	styletable_size = styletable_last = 0;
+
+	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
+}
+
+int Fl_Highlight_Editor_P::push_style(int color, int font, int size) {
+	/* grow if needed */
+	if(styletable_last >= styletable_size) {
+		if(!styletable_size) {
+			styletable_size = 3;
+			styletable = new StyleTable[styletable_size];
+		} else {
+			StyleTable *old = styletable;
+
+			styletable_size *= 2;
+			styletable = new StyleTable[styletable_size];
+
+			for(int i = 0; i < styletable_last; i++)
+				styletable[i] = old[i];
+
+			delete [] old;
+		}
+	}
+
+	styletable[styletable_last].color = color;
+	styletable[styletable_last].font  = font;
+	styletable[styletable_last].size  = size;
+
+	/* returns valid position, then increase it */
+	return styletable_last++;
+}
+
+void Fl_Highlight_Editor_P::push_style_default(int color, int font, int size) {
+	if(!styletable_size)
+		push_style(color, font, size);
+	else {
+		styletable[0].color = color;
+		styletable[0].font = font;
+		styletable[0].size = size;
+	}
+}
+
+#define FREE_AND_RETURN(o)	\
+	delete o;			    \
+	return;
+
+void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, const char *face) {
+	ContextTable *t = new ContextTable();
+	/* chr and pos are re-populated in load_face_table() */
+	t->chr = 'A';
+	t->pos = 0;
+
+	t->face = face;
+	t->type = type;
+	t->next = NULL;
+
+	if(!ctable)
+		ctable = t;
+	else
+		ctable->last->next = t;
+
+	switch(type) {
+		case CONTEXT_TYPE_INITIAL:
+		case CONTEXT_TYPE_LAST:
+			break;
+		case CONTEXT_TYPE_REGEX: {
+#if USE_POSIX_REGEX
+			if(!s->vptr->is_string(content)) {
+				puts("Pattern must be a string");
+				FREE_AND_RETURN(t);
+			}
+
+			regex_t    *rx = (regex_t*)malloc(sizeof(regex_t));
+			const char *p  = (const char*)s->vptr->string_value(content);
+
+			if(regcomp(rx, p, REG_EXTENDED | REG_NEWLINE) != 0) {
+				printf("Failed to compile pattern '%s'\n", p);
+				free(rx);
+				FREE_AND_RETURN(t);
+			}
+
+			t->object.rx = rx;
+#endif
+			break;
+		}
+
+		case CONTEXT_TYPE_TO_EOL:
+		case CONTEXT_TYPE_EXACT: {
+			if(!s->vptr->is_string(content)) {
+				puts("Exact value must be a string");
+				FREE_AND_RETURN(t);
+			}
+
+			/* FIXME: strdup()? */
+			t->object.exact = (const char*)s->vptr->string_value(content);
+			break;
+		}
+
+		case CONTEXT_TYPE_BLOCK: {
+			if(!s->vptr->is_pair(content)) {
+				puts("Block must be block type");
+				FREE_AND_RETURN(t);
+			}
+
+			pointer start = s->vptr->pair_car(content);
+			pointer end = s->vptr->pair_cdr(content);
+
+			if(!s->vptr->is_string(start) || !s->vptr->is_string(end)) {
+				puts("Block tokens must be string type");
+				FREE_AND_RETURN(t);
+			}
+
+			/* FIXME: strdup()? */
+			t->object.block[0] = s->vptr->string_value(start);
+			t->object.block[1] = s->vptr->string_value(end);
+		}
+
+		default: break;
+	}
+
+
+	ctable->last = t;
 }
 
 Fl_Highlight_Editor::Fl_Highlight_Editor(int X, int Y, int W, int H, const char *l) :
@@ -498,11 +495,6 @@ const char *Fl_Highlight_Editor::script_folder(void) {
 	return priv->script_path;
 }
 
-int Fl_Highlight_Editor::handle(int e) {
-	int ret = Fl_Text_Editor::handle(e);
-	return ret;
-}
-
 static pointer load_style_table(Fl_Highlight_Editor_P *priv) {
 	scheme *s = &(priv->scm);
 	pointer tp, f, v, style_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-style-table*"));
@@ -560,22 +552,36 @@ static pointer load_face_table(Fl_Highlight_Editor_P *priv) {
 			continue;
 
 		face = s->vptr->is_string(o) ? s->vptr->string_value(o) : s->vptr->symname(o);
-		printf("Loading face: %s\n", face);
 
 		VECTOR_GET_INT(s, v, 1, o, color);
 		VECTOR_GET_INT(s, v, 2, o, size);
 		VECTOR_GET_INT(s, v, 3, o, font);
 
-		if(strcmp(face, DEFAULT_FACE) == 0) {
+		if(STR_CMP(face, DEFAULT_FACE)) {
 			priv->push_style_default(color, font, size);
 		} else {
-			/* Lookup face in face table and assign position. This could be done much efficiently with hash table... */
+			/* Lookup face in face table and assign position and paint character. This could be done much efficiently with hash table... */
 			for(ContextTable *ct = priv->ctable; ct; ct = ct->next) {
-				if(ct->face && strcmp(ct->face, face) == 0) {
+				if(ct->face && STR_CMP(ct->face, face)) {
 					ct->pos = priv->push_style(color, font, size);
 
-					/* FIXME: we adjuct character here; move it to somewhere more visible */
+					/* FIXME: we adjust character here; move it to somewhere more visible */
 					ct->chr = 'A' + ct->pos;
+					printf("Loading face: %s %c\n", ct->face, ct->chr);
+
+					/*
+					 * Now scan remaining elements and find entries with the same face and adjust thier 'pos' and 'chr' members. With this
+					 * multiple entries with the same face, but different token matchers will have the same paint character and position inside
+					 * FLTK style table.
+					 */
+					for(ContextTable *tmp = ct; tmp; tmp = tmp->next) {
+						if(STR_CMP(ct->face, tmp->face)) {
+							tmp->pos = ct->pos;
+							tmp->chr = ct->chr;
+						}
+					}
+
+					/* done, go home */
 					break;
 				}
 			}
@@ -590,15 +596,49 @@ static void hi_parse(ContextTable *ct, const char *text, char *style, int len) {
 	if(!ct) return;
 
 	for(ContextTable *it = ct; it; it = it->next) {
-		if(it->type == CONTEXT_TYPE_EXACT) {
+		if(it->type == CONTEXT_TYPE_EXACT || it->type == CONTEXT_TYPE_TO_EOL) {
 			const char *p, *what = it->object.exact;
 			int start, l = strlen(what);
 
-			for(p = strstr(text, what); p; p = strstr(p + l, what)) {
-				start = p - text;
-				for(int i = start; i < (start + l); i++) {
-					style[i] = it->chr;
+			if(it->type == CONTEXT_TYPE_EXACT) {
+				for(p = strstr(text, what); p; p = strstr(p + l, what)) {
+					start = p - text;
+
+					for(int i = start; i < (start + l); i++)
+						style[i] = it->chr;
 				}
+			} else {
+				p = text;
+				/* paint match from found token to the end of the line or buffer */
+				for(p = strstr(text, what); p; p = strstr(p, what)) {
+					start = p - text;
+
+					for(int i = start; *p && *p != '\n'; i++, p++)
+						style[i] = it->chr;
+				}
+			}
+		} else if(it->type == CONTEXT_TYPE_BLOCK) {
+			const char *bstart, *bend, *p, *e;
+			int slen;
+
+			bstart = it->object.block[0];
+			bend   = it->object.block[1];
+			slen   = strlen(bstart);
+
+			for(p = strstr(text, bstart); p; p = strstr(p, bstart)) {
+				e = strstr(p + slen, bend);
+
+				/* this will also handle the case when block end wasn't found, so it will paint to the end of the file */
+				for(int i = p - text; *p; p++, i++) {
+					style[i] = it->chr;
+					if(p == e) {
+						/* paint ending character too */
+						style[++i] = it->chr;
+						break;
+					}
+				}
+
+				if(!*p) break;
 			}
 		} else if(it->type == CONTEXT_TYPE_REGEX) {
 #if USE_POSIX_REGEX
@@ -611,8 +651,8 @@ static void hi_parse(ContextTable *ct, const char *text, char *style, int len) {
 			int i, end;
 
 			for(str = text; regexec(it->object.rx, str, 1, pmatch, 0) != REG_NOMATCH; str += pmatch[0].rm_eo) {
-				assert(pmatch[0].rm_so != -1);
-				assert(pmatch[0].rm_eo != -1);
+				ASSERT(pmatch[0].rm_so != -1);
+				ASSERT(pmatch[0].rm_eo != -1);
 
 				i   = str - text + pmatch[0].rm_so - 1;
 				end = str - text + pmatch[0].rm_eo - 1;
@@ -705,9 +745,8 @@ static void hi_update(int pos, int ninserted, int ndeleted,
 
 	if(start == end || last != style[end - start - 1]) {
 		/*
-		 * Either the user deleted some text, or the last character
-		 * on the line changed styles, so reparse the
-		 * remainder of the buffer...
+		 * Either the user deleted some text, or the last character on the line changed
+		 * styles, so reparse the remainder of the buffer...
 		 */
 		free(text);
 		free(style);
@@ -731,7 +770,9 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 		return;
 
 	Fl_Text_Display::buffer(buf);
-	if(!priv) return;
+
+	if(!priv)
+		return;
 
 	load_style_table(priv);
 	load_face_table(priv);
@@ -739,9 +780,17 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 	hi_init(priv, buf);
 
 	/* setup initial style */
-	highlight_data(priv->stylebuf, priv->styletable, priv->styletable_size, 'A',
+	highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A',
 				   hi_unfinished_cb, 0);
 
 	buf->add_modify_callback(hi_update, priv);
-	//puts(priv->stylebuf->text());
+
+#if ENABLE_STYLEBUF_DUMP	
+	puts(priv->stylebuf->text());
+#endif
+}
+
+int Fl_Highlight_Editor::handle(int e) {
+	int ret = Fl_Text_Editor::handle(e);
+	return ret;
 }

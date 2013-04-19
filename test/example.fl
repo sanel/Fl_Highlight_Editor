@@ -5,14 +5,18 @@ code_name {.cxx}
 Function {} {open
 } {
   Fl_Window {} {
-    label {Highlight test} open
-    xywh {682 90 400 400} type Double resizable visible
+    label {Highlight test} open selected
+    xywh {860 393 400 400} type Double resizable visible
   } {
-    Fl_Box {} {selected
+    Fl_Box {} {
       xywh {25 25 60 41} resizable
     }
     Fl_Text_Editor {} {
       xywh {10 10 380 350}
+    }
+    Fl_Button {} {
+      label {&Open}
+      xywh {205 365 90 25}
     }
     Fl_Button {} {
       label {&Close}
