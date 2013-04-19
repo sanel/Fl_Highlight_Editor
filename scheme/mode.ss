@@ -88,6 +88,7 @@
 	#(3 "static|return|delete|new|switch|case" keyword-face)
 	#(3 "void\\s+|int\\s+|double\\s+|class\\s+|struct\\s+|char\\s+" type-face)
 	#(3 "^\\s*#\\s*[a-z]+" macro-face)
+	#(3 "^\\s*#\\s*[a-z]+\\s+<.*[^>]>" macro-face)
 	#(3 "(FIXME|TODO):" important-face)
 	#(4 "XXX"           keyword-face)
 	#(3 "(\".*?\"|'.*?')" string-face)))
@@ -99,4 +100,4 @@
 	#(important-face 216 12 1)
 	#(macro-face     72  12 0)
 	#(type-face      60  12 0)
-	#(string-face    72  12 1)))
+	#(string-face    72  12 0)))

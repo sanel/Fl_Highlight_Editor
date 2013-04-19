@@ -487,6 +487,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 		fclose(fd);
 	}
 #endif
+
 	float diff = (((float)clock() - (float)started) / CLOCKS_PER_SEC) * 1000;
 	printf("Interpreter booted in %4.1fms.\n", diff);
 
