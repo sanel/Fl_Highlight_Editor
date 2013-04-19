@@ -6,6 +6,11 @@
 
 #include "FL/Fl_Highlight_Editor.H"
 
+int XXX= 0;
+
+static void nothing() {
+}
+
 static void close_cb(Fl_Widget *w, void *data) {
 	Fl_Double_Window *win = (Fl_Double_Window*)data;
 	win->hide();

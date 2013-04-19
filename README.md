@@ -4,7 +4,7 @@ Extensible and customizable editing widget for [FLTK](http://www.fltk.org).
 
 ## Usage
 
-'Fl_Highlight_Editor' is a drop in replacement for [Fl_Text_Editor](http://www.fltk.org/doc-1.3/classFl__Text__Editor.html) and [Fl_Text_Display](http://www.fltk.org/doc-1.3/classFl__Text__Display.html) widgets.
+*Fl_Highlight_Editor* is a drop in replacement for [Fl_Text_Editor](http://www.fltk.org/doc-1.3/classFl__Text__Editor.html) and [Fl_Text_Display](http://www.fltk.org/doc-1.3/classFl__Text__Display.html) widgets.
 
 TODO
 
@@ -17,7 +17,7 @@ compiler and GNU make. Running:
 make
 ```
 
-will compile the code.
+will compile the code. To see it in action, run examples in *test* folder.
 
 ## License
 
