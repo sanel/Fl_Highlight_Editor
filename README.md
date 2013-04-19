@@ -2,13 +2,18 @@
 
 Extensible and customizable editing widget for [FLTK](http://www.fltk.org).
 
+<p align="center">
+<img src="https://github.com/sanel/Fl_Highlight_Editor/images/shot.png"
+     alt="Fl_Highlight_Editor" title="Fl_Highlight_Editor screenshot">
+</p>
+
 ## Usage
 
 *Fl_Highlight_Editor* is a drop in replacement for
 [Fl_Text_Editor](http://www.fltk.org/doc-1.3/classFl__Text__Editor.html) and
 [Fl_Text_Display](http://www.fltk.org/doc-1.3/classFl__Text__Display.html)
 widgets with ability to highlight the text and modify it with embeded
-[Scheme](http://en.wikipedia.org/wiki/Scheme_(programming_language)) scripting language.
+[Scheme](http://en.wikipedia.org/wiki/Scheme_%20programming_language%20) scripting language.
 
 The widget is fully self-contained and it doesn't depends on anything
 else except FLTK library, making it suitable for putting inside
