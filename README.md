@@ -3,7 +3,7 @@
 Extensible and customizable editing widget for [FLTK](http://www.fltk.org).
 
 <p align="center">
-<img src="https://github.com/sanel/Fl_Highlight_Editor/images/shot.png"
+<img src="https://raw.github.com/sanel/Fl_Highlight_Editor/master/images/shot.png"
      alt="Fl_Highlight_Editor" title="Fl_Highlight_Editor screenshot">
 </p>
 
