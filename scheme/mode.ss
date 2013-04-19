@@ -80,6 +80,7 @@
 ;  :size 14
 ;  :font 10)
 
+
 (set! *editor-style-table*
   '(#(0 #f              default-face)
 	#(1 "//"            comment-face)

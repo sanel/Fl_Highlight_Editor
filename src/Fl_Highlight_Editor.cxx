@@ -99,6 +99,7 @@ struct ContextTable {
 struct Fl_Highlight_Editor_P {
 	scheme scm;
 	char   *script_path;
+	bool   loaded_styles_and_faces;
 
 	Fl_Highlight_Editor *self; /* for doing redisplay and buffer() access from hi_update() callback */
 
@@ -259,13 +260,13 @@ static pointer _file_exists(scheme *s, pointer args) {
 	return ret == 0 ? s->T : s->F;
 }
 
-static void init_utils(scheme *s, const char *script_folder) {
+static void init_utils(scheme *s) {
 	SCHEME_DEFINE2(s, _file_exists, "file-exists?",
 				   "Check if given file is accessible.");
 }
 
-static void init_scheme_prelude(scheme *scm, const char *script_folder) {
-	init_utils(scm, script_folder);
+static void init_scheme_prelude(scheme *scm) {
+	init_utils(scm);
 
 #if USE_POSIX_REGEX
 	init_regex(scm);
@@ -281,6 +282,7 @@ Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
 	styletable  = NULL;
 	ctable      = NULL;
 	styletable_size = styletable_last = 0;
+	loaded_styles_and_faces = false;
 
 	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
 }
@@ -331,7 +333,6 @@ void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, c
 	/* chr and pos are re-populated in load_face_table() */
 	t->chr = 'A';
 	t->pos = 0;
-
 	t->face = face;
 	t->type = type;
 	t->next = NULL;
@@ -442,9 +443,6 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	if(priv) return;
 
 	clock_t started = clock();
-	char buf[PATH_MAX];
-	FILE *fd;
-
 	priv = new Fl_Highlight_Editor_P;
 	priv->self = this;
 
@@ -452,10 +450,10 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	scheme *pscm = &(priv->scm);
 	
 	scheme_init(pscm);
-	priv->script_path = strdup(script_folder);
-
 	scheme_set_input_port_file(pscm, stdin);
 	scheme_set_output_port_file(pscm, stdout);
+
+	priv->script_path = strdup(script_folder);
 
 	/* make *load-path* first */
 	pointer ptr = pscm->vptr->cons(pscm, pscm->vptr->mk_string(pscm, script_folder), pscm->NIL);
@@ -465,7 +463,14 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	SCHEME_DEFINE_VAR(pscm, "*editor-face-table*", pscm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
-	init_scheme_prelude(pscm, script_folder);
+	init_scheme_prelude(pscm);
+
+#if USE_BUNDLED_SCRIPTS
+#   include "bundled_scripts.cxx"
+	scheme_load_string(pscm, bundled_scripts_content);
+#else
+	char buf[PATH_MAX];
+	FILE *fd;
 
 	snprintf(buf, sizeof(buf), "%s/boot.ss", script_folder);
 	fd = fopen(buf, "r");
@@ -481,7 +486,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 		pscm->vptr->load_file(pscm, fd);
 		fclose(fd);
 	}
-
+#endif
 	float diff = (((float)clock() - (float)started) / CLOCKS_PER_SEC) * 1000;
 	printf("Interpreter booted in %4.1fms.\n", diff);
 
@@ -771,11 +776,15 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 
 	Fl_Text_Display::buffer(buf);
 
-	if(!priv)
-		return;
+	/* this usually means we didn't initialize interpreter */
+	if(!priv) return;
 
-	load_style_table(priv);
-	load_face_table(priv);
+	/* in case we change the buffer, loaded faces and styles are still valid */
+	if(!priv->loaded_styles_and_faces) {
+		load_style_table(priv);
+		load_face_table(priv);
+		priv->loaded_styles_and_faces = true;
+	}
 
 	hi_init(priv, buf);
 

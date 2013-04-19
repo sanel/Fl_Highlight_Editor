@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
 
 		Fl_Highlight_Editor *editor = new Fl_Highlight_Editor(10, 10, 380, 350);
 		editor->init_interpreter("./scheme");
+		editor->buffer(new Fl_Text_Buffer());
 		editor->buffer(buf);
 
 		Fl_Button *openb = new Fl_Button(205, 365, 90, 25, "&Open");
