@@ -25,6 +25,7 @@ ifeq ($(BUNDLE_SCRIPTS), 1)
 SCHEME_FILES =        \
   scheme/boot.ss      \
   scheme/constants.ss \
+  scheme/utils.ss     \
   scheme/mode.ss
 
 CXXFLAGS += -DUSE_BUNDLED_SCRIPTS
