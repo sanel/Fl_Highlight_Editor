@@ -21,12 +21,12 @@ except FLTK library, making it suitable for putting inside
 existing project.
 
 Fl_Highlight_Editor design is inspired with
-[Emacs](http://www.gnu.org/software/emacs) editor so you will find similar
-many used terms and functions names. However, this widget is not Emacs nor
-complete editor, but component to build editors and advanced text
-handling widgets.
+[Emacs](http://www.gnu.org/software/emacs) editor and you will find
+many used terms and functions names similar with it. However, this
+widget is not Emacs nor complete editor, but component to build
+editors and advanced text handling widgets.
 
-Usage details and how to extend it is described in [Manual](MANUAL.md).
+Usage details and how to extend it are described in [Manual](MANUAL.md).
 
 ## Installation
 
