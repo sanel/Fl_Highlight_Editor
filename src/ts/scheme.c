@@ -4928,6 +4928,9 @@ pointer scheme_eval(scheme *sc, pointer obj)
   return sc->value;
 }
 
+pointer scheme_reverse_in_place(scheme *sc, pointer term, pointer list) {
+	 return reverse_in_place(sc, term, list);
+}
 
 #endif
 

@@ -68,6 +68,19 @@ public:
 	/** Return currently set Fl_Text_Buffer object. */
 	Fl_Text_Buffer *buffer(void) { return Fl_Text_Editor::buffer(); }
 
+	/**
+	 * Load file in buffer. If not Fl_Text_Buffer was provided (with <i>buffer()</i> member), it will be created
+	 * and assigned.
+	 *
+	 * Before this function loads file, it will call interpreter's <b>*editor-before-loadfile-hook*</b> with filename
+	 * as parameter. This hook is used to initialize highlight mode deduced from filename.
+	 *
+	 * After file was successfully loaded, it will call interpreter's <b>*editor-after-loadfile-hook*</b>.
+	 *
+	 * Returns 0 if succeded or non-zero on error. Inspect error with strerror().
+	 */
+	int loadfile(const char *file, int buflen = 128 * 1024);
+
 	/** Overriden Fl_Text_Editor method for handling events. */
 	int handle(int event);
 };

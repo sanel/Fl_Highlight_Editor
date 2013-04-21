@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <limits.h>
 #include <FL/Fl_Highlight_Editor.H>
 
@@ -61,16 +62,19 @@ enum {
  * This is table where are are stored rules for syntax highlighting. Syntax highlighting is done
  * by applying a couple of strategies:
  * 
- *  1) block matching - done by searching strings designated block start and end. Block matching is
+ *  1) block matching - done by searching strings marked as block start and block end. Block matching is
  *     used for (example) block comments and will behave like Vim - if block start was found but not block end,
  *     the whole buffer from that position will be painted in given face.
  *
- *  2) regex matching - regex is first compiled and matched against the whole buffer. Founded chunks will be
- *     painted on the same position in StyleTable buffer. No regex grouping is considered as is not useful here.
+ *  2) regex matching - regex is first compiled and matched against the whole buffer (or given region). Founded chunks will be
+ *     painted on the same position in StyleTable buffer. No regex grouped submatches is considered as is not useful here.
  *
- *  3) exact matching - again done against the whole buffer, where exact string is searched for. Mainly useful for
- *     content where regex engine is expensive or for the cases where special characters are involved so escaping
+ *  3) exact matching - again done against the whole buffer (or given region), where exact string is searched for. Useful
+ *     mainly for content where regex engine is expensive or for the cases where special characters are involved so escaping
  *     is not needed.
+ *
+ *  4) to eol (end of line) matching - exact string is searched for and the whole line, up to the end, is painted. This
+ *     is intended for line comments.
  *
  * When painting is started, we scan ContextTable and for every matched type, we paint with given character found
  * match position in StyleTable buffer. To understaind how this works, see Fl_Text_Display documentation and how syntax
@@ -147,9 +151,61 @@ static pointer scheme_error(scheme *sc, const char *tag, const char *str) {
 	return sc->F;
 }
 
+/* simple vprintf-like function for easier creating lists */
+static pointer scheme_argsf(scheme *sc, const char *fmt, ...) {
+	pointer p = sc->NIL;
+
+	va_list vl;
+	va_start(vl, fmt);
+
+	for(int i = 0; fmt[i]; i++) {
+		switch(fmt[i]) {
+			case 's':
+				p = sc->vptr->cons(sc, sc->vptr->mk_string(sc, va_arg(vl, const char*)), p);
+				break;
+			case 'S':
+				p = sc->vptr->cons(sc, sc->vptr->mk_symbol(sc, va_arg(vl, const char*)), p);
+				break;
+			case 'i':
+				p = sc->vptr->cons(sc, sc->vptr->mk_integer(sc, va_arg(vl, long)), p);
+				break;
+			case 'd':
+				p = sc->vptr->cons(sc, sc->vptr->mk_real(sc, va_arg(vl, double)), p);
+				break;
+			case 'c':
+				p = sc->vptr->cons(sc, sc->vptr->mk_character(sc, va_arg(vl, int)), p);
+				break;
+			case 'L':
+				p = sc->vptr->cons(sc, va_arg(vl, pointer), p);
+				break;
+			case 'A': {
+				for(pointer o = va_arg(vl, pointer); o != sc->NIL; o = sc->vptr->pair_cdr(o))
+					p = sc->vptr->cons(sc, sc->vptr->pair_car(o), p);
+				break;
+			} default:
+				printf("Warning: unknown format char '%c', skipping...\n", fmt[i]);
+				break;
+		}
+	}
+
+	va_end(vl);
+	/* elements in 'p' are due cons-ing in reverse order now */
+	return scheme_reverse_in_place(sc, sc->NIL, p);
+}
+
+/* calls (editor-run-hook) */
+INLINE static pointer scheme_run_hook(scheme *sc, const char *hook, pointer args) {
+	/* construct '(editor-run-hook hook-str hook args) */
+	args = sc->vptr->cons(sc, sc->vptr->mk_symbol(sc, hook), args);
+	args = sc->vptr->cons(sc, sc->vptr->mk_string(sc, hook), args);
+	args = sc->vptr->cons(sc, sc->vptr->mk_symbol(sc, "editor-run-hook"), args);
+
+	return scheme_eval(sc, args);
+}
+
 /* regex */
 #if USE_POSIX_REGEX
-static void _rx_free(void *r) {
+INLINE static void _rx_free(void *r) {
 	regex_t *rx = (regex_t*)r;
 	regfree(rx);
 }
@@ -260,9 +316,19 @@ static pointer _file_exists(scheme *s, pointer args) {
 	return ret == 0 ? s->T : s->F;
 }
 
+static pointer _system(scheme *s, pointer args) {
+	pointer arg = s->vptr->pair_car(args);
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL, "Expected string object as first argument.");
+
+	int ret = system(s->vptr->string_value(arg));
+	return s->vptr->mk_integer(s, ret);
+}
+
 static void init_utils(scheme *s) {
 	SCHEME_DEFINE2(s, _file_exists, "file-exists?",
 				   "Check if given file is accessible.");
+	SCHEME_DEFINE2(s, _system, "system",
+				   "Run external command.");
 }
 
 static void init_scheme_prelude(scheme *scm) {
@@ -461,6 +527,8 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 
 	SCHEME_DEFINE_VAR(pscm, "*editor-style-table*", pscm->NIL);
 	SCHEME_DEFINE_VAR(pscm, "*editor-face-table*", pscm->NIL);
+	SCHEME_DEFINE_VAR(pscm, "*editor-before-loadfile-hook*", pscm->NIL);
+	SCHEME_DEFINE_VAR(pscm, "*editor-after-loadfile-hook*", pscm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
 	init_scheme_prelude(pscm);
@@ -798,6 +866,23 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 #if ENABLE_STYLEBUF_DUMP	
 	puts(priv->stylebuf->text());
 #endif
+}
+
+int Fl_Highlight_Editor::loadfile(const char *file, int buflen) {
+	if(!buffer()) {
+		buffer(new Fl_Text_Buffer());
+	}
+
+	scheme *pscm = &(priv->scm);
+
+	scheme_run_hook(pscm, "*editor-before-loadfile-hook*", scheme_argsf(pscm, "s", file));
+	int ret = buffer()->loadfile(file, buflen);
+
+	if(ret != 0)
+		return ret;
+
+	scheme_run_hook(pscm, "*editor-after-loadfile-hook*", scheme_argsf(pscm, "s", file));
+	return ret;
 }
 
 int Fl_Highlight_Editor::handle(int e) {

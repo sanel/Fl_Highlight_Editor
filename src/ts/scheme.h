@@ -153,6 +153,7 @@ SCHEME_EXPORT pointer scheme_call(scheme *sc, pointer func, pointer args);
 SCHEME_EXPORT pointer scheme_eval(scheme *sc, pointer obj);
 void scheme_set_external_data(scheme *sc, void *p);
 SCHEME_EXPORT void scheme_define(scheme *sc, pointer env, pointer symbol, pointer value);
+SCHEME_EXPORT pointer scheme_reverse_in_place(scheme *sc, pointer term, pointer list);
 
 typedef pointer (*foreign_func)(scheme *, pointer);
 

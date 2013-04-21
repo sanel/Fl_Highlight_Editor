@@ -58,6 +58,8 @@ int main(int argc, char **argv) {
      /* assign Fl_Text_Buffer content to editor */
      editor->buffer(buf);
    win->end();
+
+   /* show the window and enter event loop */
    win->show(argc, argv);
    return Fl::run();
 }
