@@ -3,11 +3,16 @@
 (require 'utils)
 (require 'mode)
 
-
 ;;; hook facility
 
 (define-macro (add-hook! hook func)
-  `(set! ,hook (cons ,func ,hook)))
+  `(set! ,hook
+		(reverse ;; reverse it, so oldest functions are called first
+		 (cons ,func ,hook))))
+
+(define-macro (add-to-list! list elem)
+  `(set! ,list
+		 (cons ,elem ,list)))
 
 (define (editor-run-hook hook-name hook . args)
   (for-each (lambda (func)
@@ -19,11 +24,21 @@
 			  (println (get-closure-code func)))
 			hook))
 
-(add-hook! *editor-before-loadfile-hook*
-   (lambda (file)
-	 (println "===> loading " file)))
+;; (forward-char n)
+(define (forward-char n)
+  (goto-char (+ n (point))))
+
+(define (backward-char n)
+  (goto-char (- (point) n)))
+
+;; (buffer-file-name)
+
+(define *editor-buffer-file-name* #f)
+
+(define (buffer-file-name)
+  *editor-buffer-file-name*)
 
 (add-hook! *editor-after-loadfile-hook*
-   (lambda (file)
-	 (println "===> done " file)
-	 (system "uname -a")))
+  (lambda (f)
+	(set! *editor-buffer-file-name* f)
+	(set-tab-width 3)))

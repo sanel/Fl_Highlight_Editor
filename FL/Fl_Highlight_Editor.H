@@ -20,7 +20,6 @@
 #define FL_HIGHLIGHT_EDITOR_H
 
 #include <FL/Fl_Text_Editor.H>
-#include <FL/Fl_Text_Buffer.H>
 
 /** Set to 1 if you have or going to use POSIX regex as matching engine. */
 #define USE_POSIX_REGEX 1
@@ -28,10 +27,14 @@
 /** Set to 1 if you want assert() be used for internal checks. */
 #define USE_ASSERT 1
 
+class  Fl_Text_Buffer;
 struct Fl_Highlight_Editor_P;
 
 /**
- * Class for higlighting text in extensible manner.
+ * Text highlighting and editing widget in extensible manner.
+ *
+ * Fl_Highlight_Editor is widget for displaying and editing text, with ability to highlight parts of the text
+ * based on predefined rules. Highlighting can be done by setting custom colors, font weights and sizes.
  */
 class FL_EXPORT Fl_Highlight_Editor : public Fl_Text_Editor {
 private:
@@ -55,13 +58,13 @@ public:
 
 	/**
 	 * Returns path for script folder. Unless init_interpreter() was called before, it will return NULL.
-	 * Returned pointer points to internally allocated string and will be frieed when object was destroyed.
+	 * Returned pointer points to internally allocated string and will be freed when object was destroyed.
 	 */
 	const char *script_folder(void);
 
 	/**
-	 * Assign Fl_Text_Buffer object. This function behaves exactly the same as Fl_Text_Editor::buffer(), execept
-	 * it will additionally initialize style buffer.
+	 * Assign Fl_Text_Buffer object. This function behaves exactly the same as Fl_Text_Editor::buffer(), except
+	 * it will (additionally) initialize style buffer.
 	 */
 	void buffer(Fl_Text_Buffer *buf);
 
@@ -72,7 +75,7 @@ public:
 	 * Load file in buffer. If not Fl_Text_Buffer was provided (with <i>buffer()</i> member), it will be created
 	 * and assigned.
 	 *
-	 * Before this function loads file, it will call interpreter's <b>*editor-before-loadfile-hook*</b> with filename
+	 * Before this function loads the file, it will call interpreter's <b>*editor-before-loadfile-hook*</b> with filename
 	 * as parameter. This hook is used to initialize highlight mode deduced from filename.
 	 *
 	 * After file was successfully loaded, it will call interpreter's <b>*editor-after-loadfile-hook*</b>.
@@ -80,6 +83,16 @@ public:
 	 * Returns 0 if succeded or non-zero on error. Inspect error with strerror().
 	 */
 	int loadfile(const char *file, int buflen = 128 * 1024);
+
+	/**
+	 * Save a content from current buffer in given file.
+	 *
+	 * Before it loads the file, it will run <b>*editor-before-savefile-hook*</b> with given filename as parameter. After
+	 * file was successfully saved, it will call <b>*editor-after-savefile-hook*</b>.
+	 *
+	 * This function returns the same values as Fl_Text_Buffer::savefile().
+	 */ 
+	int savefile(const char *file, int buflen = 128 * 1024);
 
 	/** Overriden Fl_Text_Editor method for handling events. */
 	int handle(int event);

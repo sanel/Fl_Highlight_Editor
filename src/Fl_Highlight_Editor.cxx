@@ -47,6 +47,7 @@
 #define STR_CMP(s1, s2) (strcmp((s1), (s2)) == 0)
 
 extern int FL_NORMAL_SIZE; /* default FLTK font size */
+
 typedef Fl_Text_Display::Style_Table_Entry StyleTable;
 
 enum {
@@ -297,15 +298,6 @@ static pointer _rx_match(scheme *s, pointer args) {
 	str = s->vptr->string_value(arg);
 	return regexec(rx, str, (size_t)0, NULL, 0) == REG_NOMATCH ? s->F : s->T;
 }
-
-static void init_regex(scheme *scm) {
-	SCHEME_DEFINE2(scm, _rx_compile, "regex-compile",
-				   "Compile regular expression into binary (and fast object). If fails, returns #f.");
-	SCHEME_DEFINE2(scm, _rx_type, "regex?",
-				   "Check if given parameter is regular expression object.");
-	SCHEME_DEFINE2(scm, _rx_match, "regex-match",
-				   "Returns #t or #f if given string matches regular expression object.");
-}
 #endif /* USE_POSIX_REGEX */
 
 static pointer _file_exists(scheme *s, pointer args) {
@@ -324,19 +316,109 @@ static pointer _system(scheme *s, pointer args) {
 	return s->vptr->mk_integer(s, ret);
 }
 
-static void init_utils(scheme *s) {
-	SCHEME_DEFINE2(s, _file_exists, "file-exists?",
-				   "Check if given file is accessible.");
-	SCHEME_DEFINE2(s, _system, "system",
-				   "Run external command.");
+static pointer _buffer_string(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	/* no buffer */
+	if(!priv->self->buffer())
+		return s->F;
+
+	char *t = priv->self->buffer()->text();
+	pointer ret = s->vptr->mk_string(s, t);
+	free(t);
+
+	return ret;
 }
 
-static void init_scheme_prelude(scheme *scm) {
-	init_utils(scm);
+static pointer _point(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	return s->vptr->mk_integer(s, priv->self->insert_position());
+}
+
+static pointer _goto_char(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_integer(arg),
+					   "Expected number as first argument.");
+
+	priv->self->insert_position(s->vptr->ivalue(arg));
+	return s->T;
+}
+
+static pointer _beginning_of_line(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	priv->self->kf_home(0, priv->self);
+	return s->T;
+}
+
+static pointer _end_of_line(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	priv->self->kf_end(0, priv->self);
+	return s->T;
+}
+
+static pointer _set_tab_width(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_integer(arg),
+					   "Expected number as first argument.");
+
+	Fl_Text_Buffer *b = priv->self->buffer();
+	if(!b) return s->F;
+
+	b->tab_distance(s->vptr->ivalue(arg));
+	return s->T;
+}
+
+static pointer _get_tab_width(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	int ret = -1;
+	Fl_Text_Buffer *b = priv->self->buffer();
+	if(b) ret = b->tab_distance();
+
+	return s->vptr->mk_integer(s, ret);
+}
+
+/* export this symbols to intepreter */
+static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
+	/* So functions can access buffer(), self and etc. Accessed with 's->ext_data'. */
+	scheme_set_external_data(s, priv);
+
+	/* base functions */
+	SCHEME_DEFINE2(s, _file_exists, "file-exists?", "Check if given file is accessible.");
+	SCHEME_DEFINE2(s, _system, "system", "Run external command.");
 
 #if USE_POSIX_REGEX
-	init_regex(scm);
+	SCHEME_DEFINE2(s, _rx_compile, "regex-compile",
+				   "Compile regular expression into binary (and fast object). If fails, returns #f.");
+	SCHEME_DEFINE2(s, _rx_type, "regex?",
+				   "Check if given parameter is regular expression object.");
+	SCHEME_DEFINE2(s, _rx_match, "regex-match",
+				   "Returns #t or #f if given string matches regular expression object.");
 #endif
+
+	/* functions for accessing text; if buffer() not available, does nothing */
+	SCHEME_DEFINE2(s, _buffer_string, "buffer-string",
+				   "Return content of buffer. In buffer not available, returns #f.");
+	SCHEME_DEFINE2(s, _point, "point", "Return current cursor position.");
+	SCHEME_DEFINE2(s, _goto_char, "goto-char", "Move cursor to given position.");
+	SCHEME_DEFINE2(s, _beginning_of_line, "beginning-of-line", "Move cursor to beginning of line.");
+	SCHEME_DEFINE2(s, _end_of_line, "end-of-line", "Move cursor to end of line.");
+	SCHEME_DEFINE2(s, _set_tab_width, "set-tab-width", "Set TAB width.");
+	SCHEME_DEFINE2(s, _get_tab_width, "get-tab-width", "Get TAB width. If buffer not available, returns -1.");
 }
 
 /* core widget code */
@@ -527,11 +609,12 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 
 	SCHEME_DEFINE_VAR(pscm, "*editor-style-table*", pscm->NIL);
 	SCHEME_DEFINE_VAR(pscm, "*editor-face-table*", pscm->NIL);
+	SCHEME_DEFINE_VAR(pscm, "*editor-auto-mode-alist*", pscm->NIL);
 	SCHEME_DEFINE_VAR(pscm, "*editor-before-loadfile-hook*", pscm->NIL);
 	SCHEME_DEFINE_VAR(pscm, "*editor-after-loadfile-hook*", pscm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
-	init_scheme_prelude(pscm);
+	init_scheme_prelude(pscm, priv);
 
 #if USE_BUNDLED_SCRIPTS
 #   include "bundled_scripts.cxx"
@@ -869,19 +952,34 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 }
 
 int Fl_Highlight_Editor::loadfile(const char *file, int buflen) {
-	if(!buffer()) {
+	if(!buffer())
 		buffer(new Fl_Text_Buffer());
-	}
 
+	ASSERT(priv != NULL);
 	scheme *pscm = &(priv->scm);
 
 	scheme_run_hook(pscm, "*editor-before-loadfile-hook*", scheme_argsf(pscm, "s", file));
 	int ret = buffer()->loadfile(file, buflen);
 
-	if(ret != 0)
-		return ret;
+	if(ret != 0) return ret;
 
 	scheme_run_hook(pscm, "*editor-after-loadfile-hook*", scheme_argsf(pscm, "s", file));
+	return ret;
+}
+
+int Fl_Highlight_Editor::savefile(const char *file, int buflen) {
+	if(!buffer())
+		buffer(new Fl_Text_Buffer());
+
+	ASSERT(priv != NULL);
+	scheme *pscm = &(priv->scm);
+
+	scheme_run_hook(pscm, "*editor-before-savefile-hook*", scheme_argsf(pscm, "s", file));
+	int ret = buffer()->savefile(file, buflen);
+
+	if(ret != 0) return ret;
+
+	scheme_run_hook(pscm, "*editor-after-savefile-hook*", scheme_argsf(pscm, "s", file));
 	return ret;
 }
 
