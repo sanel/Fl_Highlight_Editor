@@ -122,6 +122,23 @@ struct Fl_Highlight_Editor_P {
 	void push_context(scheme *s, int type, pointer content, const char *face);
 };
 
+/*
+ * regcomp() with ability to check if pattern starts/ends with '|'. Without checking, this could cause
+ * infinite loop.
+ */
+#if USE_POSIX_REGEX_CHECK
+static int regcomp_safe(regex_t *preg, const char *regex, int cflags) {
+	int l = strlen(regex);
+
+	/* also taken into account when ending OR token was escaped */
+	if(regex[0] == '|' || ((l > 2) && regex[l - 1] == '|' && regex[l - 2] != '\\'))
+		printf("Warning: regex '%s' is starting/ending with OR operator, which can cause infine loop!\n", regex);
+	return regcomp(preg, regex, cflags);
+}
+#else
+# define regcomp_safe regcomp
+#endif
+
 /* first some scheme functions we export */
 
 #define SCHEME_RET_IF_FAIL(scm, expr, str)      \
@@ -260,7 +277,7 @@ static pointer _rx_compile(scheme *s, pointer args) {
 
 	regex_t *rx = (regex_t*)malloc(sizeof(regex_t));
 
-	if(regcomp(rx, pattern, flags) != 0) {
+	if(regcomp_safe(rx, pattern, flags) != 0) {
 		free(rx);
 		return s->F;
 	}
@@ -504,7 +521,7 @@ void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, c
 			regex_t    *rx = (regex_t*)malloc(sizeof(regex_t));
 			const char *p  = (const char*)s->vptr->string_value(content);
 
-			if(regcomp(rx, p, REG_EXTENDED | REG_NEWLINE) != 0) {
+			if(regcomp_safe(rx, p, REG_EXTENDED | REG_NEWLINE) != 0) {
 				printf("Failed to compile pattern '%s'\n", p);
 				free(rx);
 				FREE_AND_RETURN(t);
@@ -940,15 +957,16 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 
 	hi_init(priv, buf);
 
-	/* setup initial style */
-	highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A',
-				   hi_unfinished_cb, 0);
+	if(priv->stylebuf) {
+		/* setup initial style */
+		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A',
+					   hi_unfinished_cb, 0);
 
-	buf->add_modify_callback(hi_update, priv);
-
+		buf->add_modify_callback(hi_update, priv);
 #if ENABLE_STYLEBUF_DUMP	
-	puts(priv->stylebuf->text());
+		puts(priv->stylebuf->text());
 #endif
+	}
 }
 
 int Fl_Highlight_Editor::loadfile(const char *file, int buflen) {
