@@ -22,6 +22,7 @@
 ;;; globals
 
 (define *editor-buffer-file-name* #f)
+(define *editor-current-mode* #f)
 
 ;;; hook facility
 
@@ -64,12 +65,23 @@
 	  (let* ([rx     (regex-compile (car item) '(RX_EXTENDED))]
 			 [match? (and rx (regex-match rx filename))])
 		(when match?
-		  (println "Will load: " (cdr item))
-		  (load (string-append "scheme/modes/" (symbol->string (cdr item)) ".ss"))
-		  (editor-repaint-context-changed)
-		  (editor-repaint-face-changed)
-		  (return #t)
-		  )))
+		  (let ([mode (cond
+						[(string? (cdr item)) (cdr item)]
+						[(symbol? (cdr item)) (symbol->string (cdr item))]
+						[else
+						  (error "Mode name not string or symbol")])])
+
+			(if (and *editor-current-mode*
+					 (string=? *editor-current-mode* mode))
+			  (return #t)
+			  (let* ([path    (string-append "scheme/modes/" mode ".ss")]
+					 [exists? (file-exists? path)])
+				(when exists?
+				  (load path)
+				  (editor-repaint-context-changed)
+				  (editor-repaint-face-changed)
+				  (set! *editor-current-mode* mode)
+				  (return #t) ) ) ) ) ) ) )
 	lst))
 
 (set! *editor-face-table*
@@ -86,7 +98,7 @@
 (define *editor-auto-mode-table*
   '(("(\\.[CchH]|\\.[hc]pp|\\.[hc]xx|\\.[hc]\\+\\+|\\.CC)$" . c-mode)
 	("(\\.py|\\.pyc)$" . python-mode)
-	("(\\.sh)$" . shell-mode)))
+	("(\\.md)$" . markdown-mode)))
 
 (add-hook! *editor-before-loadfile-hook*
   (lambda (f)

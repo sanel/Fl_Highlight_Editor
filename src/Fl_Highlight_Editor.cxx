@@ -851,6 +851,7 @@ static char *hi_parse(ContextTable *ct, const char *text, char *style, int len) 
 				}
 
 				if(!*p) break;
+				p += slen;
 			}
 		} else if(it->type == CONTEXT_TYPE_REGEX) {
 #if USE_POSIX_REGEX
