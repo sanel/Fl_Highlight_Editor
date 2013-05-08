@@ -24,6 +24,9 @@
 /** Set to 1 if you have or going to use POSIX regex as matching engine. */
 #define USE_POSIX_REGEX 1
 
+/** Warn (to stdout) if using regex-es that can cause infinite loops. */
+#define USE_POSIX_REGEX_CHECK 1
+
 /** Set to 1 if you want assert() be used for internal checks. */
 #define USE_ASSERT 1
 
@@ -39,8 +42,13 @@ struct Fl_Highlight_Editor_P;
 class FL_EXPORT Fl_Highlight_Editor : public Fl_Text_Editor {
 private:
 	Fl_Highlight_Editor_P *priv;
-
 public:
+	enum {
+		REPAINT_CONTEXT = (1 << 1),
+		REPAINT_STYLE   = (1 << 2),
+		REPAINT_ALL     = REPAINT_CONTEXT | REPAINT_STYLE
+	};
+
 	/** Constructor; creates widget at given point with given dimensions. */
 	Fl_Highlight_Editor(int X, int Y, int W, int H, const char *l = 0);
 
@@ -64,12 +72,20 @@ public:
 
 	/**
 	 * Assign Fl_Text_Buffer object. This function behaves exactly the same as Fl_Text_Editor::buffer(), except
-	 * it will (additionally) initialize style buffer.
+	 * it will call repaint() after buffer was assigned.
 	 */
 	void buffer(Fl_Text_Buffer *buf);
 
 	/** Return currently set Fl_Text_Buffer object. */
 	Fl_Text_Buffer *buffer(void) { return Fl_Text_Editor::buffer(); }
+
+	/**
+	 * This function will (re)load face and context tables and apply highlighting based on their content.
+	 * It will also register callback (only once) for update changes on currently used buffer.
+	 *
+	 * Calling this function without buffer set will do nothing.
+	 */
+	void repaint(int what, const char *mode = NULL);
 
 	/**
 	 * Load file in buffer. If not Fl_Text_Buffer was provided (with <i>buffer()</i> member), it will be created

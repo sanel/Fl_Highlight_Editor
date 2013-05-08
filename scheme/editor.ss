@@ -1,7 +1,27 @@
+;;
+;; Fl_Highlight_Editor - extensible text editing widget
+;; Copyright (c) 2013 Sanel Zukan.
+;;
+;; This library is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU Lesser General Public
+;; License as published by the Free Software Foundation; either
+;; version 2 of the License, or (at your option) any later version.
+;;
+;; This library is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+;; Lesser General Public License for more details.
+;;
+;; You should have received a copy of the GNU Lesser General Public License
+;; along with this library. If not, see <http://www.gnu.org/licenses/>.
+
 ;;; setup essential editor stuff; called after boot.ss
 
 (require 'utils)
-(require 'mode)
+
+;;; globals
+
+(define *editor-buffer-file-name* #f)
 
 ;;; hook facility
 
@@ -28,17 +48,47 @@
 (define (forward-char n)
   (goto-char (+ n (point))))
 
+;; (backward-char n)
 (define (backward-char n)
   (goto-char (- (point) n)))
 
 ;; (buffer-file-name)
 
-(define *editor-buffer-file-name* #f)
-
 (define (buffer-file-name)
   *editor-buffer-file-name*)
 
-(add-hook! *editor-after-loadfile-hook*
+;; load given mode by matching against filename
+(define-with-return (editor-try-load-mode-by-filename lst filename)
+  (for-each
+    (lambda (item)
+	  (let* ([rx     (regex-compile (car item) '(RX_EXTENDED))]
+			 [match? (and rx (regex-match rx filename))])
+		(when match?
+		  (println "Will load: " (cdr item))
+		  (load (string-append "scheme/modes/" (symbol->string (cdr item)) ".ss"))
+		  (editor-repaint-context-changed)
+		  (editor-repaint-face-changed)
+		  (return #t)
+		  )))
+	lst))
+
+(set! *editor-face-table*
+  '(#(default-face   56  12 0)
+	#(comment-face   216 12 0)
+	#(keyword-face   216 12 0)
+	#(important-face 216 12 1)
+	#(macro-face     72  12 0)
+	#(type-face      60  12 0)
+	#(string-face    72  12 0)))
+
+;;; file types
+
+(define *editor-auto-mode-table*
+  '(("(\\.[CchH]|\\.[hc]pp|\\.[hc]xx|\\.[hc]\\+\\+|\\.CC)$" . c-mode)
+	("(\\.py|\\.pyc)$" . python-mode)
+	("(\\.sh)$" . shell-mode)))
+
+(add-hook! *editor-before-loadfile-hook*
   (lambda (f)
 	(set! *editor-buffer-file-name* f)
-	(set-tab-width 3)))
+	(editor-try-load-mode-by-filename *editor-auto-mode-table* f)))

@@ -102,9 +102,10 @@ struct ContextTable {
 };
 
 struct Fl_Highlight_Editor_P {
-	scheme scm;
+	scheme *scm;
 	char   *script_path;
-	bool   loaded_styles_and_faces;
+	bool   loaded_context_and_faces;
+	bool   update_cb_added;
 
 	Fl_Highlight_Editor *self; /* for doing redisplay and buffer() access from hi_update() callback */
 
@@ -119,7 +120,10 @@ struct Fl_Highlight_Editor_P {
 
 	int  push_style(int color, int font, int size);
 	void push_style_default(int color, int font, int size);
+	void clear_styles();
+
 	void push_context(scheme *s, int type, pointer content, const char *face);
+	void clear_contexts();
 };
 
 /*
@@ -409,6 +413,22 @@ static pointer _get_tab_width(scheme *s, pointer args) {
 	return s->vptr->mk_integer(s, ret);
 }
 
+static pointer _editor_repaint_context_chaged(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	priv->self->repaint(Fl_Highlight_Editor::REPAINT_CONTEXT);
+	return s->T;
+}
+
+static pointer _editor_repaint_face_chaged(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	priv->self->repaint(Fl_Highlight_Editor::REPAINT_STYLE);
+	return s->T;
+}
+
 /* export this symbols to intepreter */
 static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* So functions can access buffer(), self and etc. Accessed with 's->ext_data'. */
@@ -436,18 +456,22 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	SCHEME_DEFINE2(s, _end_of_line, "end-of-line", "Move cursor to end of line.");
 	SCHEME_DEFINE2(s, _set_tab_width, "set-tab-width", "Set TAB width.");
 	SCHEME_DEFINE2(s, _get_tab_width, "get-tab-width", "Get TAB width. If buffer not available, returns -1.");
+	SCHEME_DEFINE2(s, _editor_repaint_context_chaged, "editor-repaint-context-changed", "Update global context table and redraw.");
+	SCHEME_DEFINE2(s, _editor_repaint_face_chaged, "editor-repaint-face-changed", "Update global face table and redraw.");
 }
 
 /* core widget code */
 
 Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
+	scm         = NULL;
 	script_path = NULL;
 	self        = NULL;
 	stylebuf    = NULL;
 	styletable  = NULL;
 	ctable      = NULL;
 	styletable_size = styletable_last = 0;
-	loaded_styles_and_faces = false;
+	loaded_context_and_faces = false;
+	update_cb_added = false;
 
 	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
 }
@@ -487,6 +511,12 @@ void Fl_Highlight_Editor_P::push_style_default(int color, int font, int size) {
 		styletable[0].font = font;
 		styletable[0].size = size;
 	}
+}
+
+void Fl_Highlight_Editor_P::clear_styles(void) {
+	delete [] styletable;
+	styletable = NULL;
+	styletable_last = styletable_size = 0;
 }
 
 #define FREE_AND_RETURN(o)	\
@@ -570,6 +600,24 @@ void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, c
 	ctable->last = t;
 }
 
+void Fl_Highlight_Editor_P::clear_contexts(void) {
+	if(!ctable) return;
+
+	ContextTable *it, *nx;
+	for(it = ctable; it; it = nx) {
+		printf("removing: %s face\n", it->face);
+		nx = it->next;
+
+#if USE_POSIX_REGEX
+		if(it->type == CONTEXT_TYPE_REGEX)
+			regfree(it->object.rx);
+#endif
+		delete it;
+	}
+
+	ctable = NULL;
+}
+
 Fl_Highlight_Editor::Fl_Highlight_Editor(int X, int Y, int W, int H, const char *l) :
 	Fl_Text_Editor(X, Y, W, H, l), priv(NULL)
 {
@@ -582,23 +630,12 @@ Fl_Highlight_Editor::~Fl_Highlight_Editor() {
 	if(priv->script_path)
 		free(priv->script_path);
 
-	scheme *pscm = &(priv->scm);
-	scheme_deinit(pscm);
+	if(priv->scm)
+		scheme_deinit(priv->scm);
 
-	if(priv->ctable) {
-		ContextTable *it, *nx;
-		for(it = priv->ctable; it; it = nx) {
-			printf("removing: %s face\n", it->face);
-			nx = it->next;
-#if USE_POSIX_REGEX
-			if(it->type == CONTEXT_TYPE_REGEX)
-				regfree(it->object.rx);
-#endif
-			delete it;
-		}
-	}
+	priv->clear_contexts();
+	priv->clear_styles();
 
-	delete [] priv->styletable;
 	delete priv->stylebuf;
 	delete priv;
 	priv = NULL;
@@ -612,30 +649,29 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	priv->self = this;
 
 	/* load interpreter */
-	scheme *pscm = &(priv->scm);
-	
-	scheme_init(pscm);
-	scheme_set_input_port_file(pscm, stdin);
-	scheme_set_output_port_file(pscm, stdout);
+	scheme *scm = scheme_init_new();
+	scheme_set_input_port_file(scm, stdin);
+	scheme_set_output_port_file(scm, stdout);
 
 	priv->script_path = strdup(script_folder);
 
 	/* make *load-path* first */
-	pointer ptr = pscm->vptr->cons(pscm, pscm->vptr->mk_string(pscm, script_folder), pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*load-path*", ptr);
+	pointer ptr = scm->vptr->cons(scm, scm->vptr->mk_string(scm, script_folder), scm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*load-path*", ptr);
 
-	SCHEME_DEFINE_VAR(pscm, "*editor-style-table*", pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*editor-face-table*", pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*editor-auto-mode-alist*", pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*editor-before-loadfile-hook*", pscm->NIL);
-	SCHEME_DEFINE_VAR(pscm, "*editor-after-loadfile-hook*", pscm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*editor-current-mode*", scm->F);
+	SCHEME_DEFINE_VAR(scm, "*editor-context-table*", scm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*editor-face-table*", scm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*editor-auto-mode-alist*", scm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*editor-before-loadfile-hook*", scm->NIL);
+	SCHEME_DEFINE_VAR(scm, "*editor-after-loadfile-hook*", scm->NIL);
 
 	/* assure prerequisites are loaded before main initialization file */
-	init_scheme_prelude(pscm, priv);
+	init_scheme_prelude(scm, priv);
 
 #if USE_BUNDLED_SCRIPTS
 #   include "bundled_scripts.cxx"
-	scheme_load_string(pscm, bundled_scripts_content);
+	scheme_load_string(scm, bundled_scripts_content);
 #else
 	char buf[PATH_MAX];
 	FILE *fd;
@@ -643,7 +679,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	snprintf(buf, sizeof(buf), "%s/boot.ss", script_folder);
 	fd = fopen(buf, "r");
 	if(fd) {
-		pscm->vptr->load_file(pscm, fd);
+		scm->vptr->load_file(scm, fd);
 		fclose(fd);
 	}
 
@@ -651,7 +687,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	snprintf(buf, sizeof(buf), "%s/editor.ss", script_folder);
 	fd = fopen(buf, "r");
 	if(fd) {
-		pscm->vptr->load_file(pscm, fd);
+		scm->vptr->load_file(scm, fd);
 		fclose(fd);
 	}
 #endif
@@ -660,7 +696,9 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	printf("Interpreter booted in %4.1fms.\n", diff);
 
 	if(do_repl)
-		scheme_load_named_file(pscm, stdin, 0);
+		scheme_load_named_file(scm, stdin, 0);
+
+	priv->scm = scm;
 }
 
 const char *Fl_Highlight_Editor::script_folder(void) {
@@ -669,9 +707,9 @@ const char *Fl_Highlight_Editor::script_folder(void) {
 	return priv->script_path;
 }
 
-static pointer load_style_table(Fl_Highlight_Editor_P *priv) {
-	scheme *s = &(priv->scm);
-	pointer tp, f, v, style_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-style-table*"));
+static Fl_Highlight_Editor_P *load_context_table(Fl_Highlight_Editor_P *priv) {
+	scheme *s = priv->scm;
+	pointer tp, f, v, style_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-context-table*"));
 	char *face;
 
 	for(pointer it = style_table; it != s->NIL; it = s->vptr->pair_cdr(it)) {
@@ -699,7 +737,7 @@ static pointer load_style_table(Fl_Highlight_Editor_P *priv) {
 		priv->push_context(s, s->vptr->ivalue(tp), s->vptr->vector_elem(v, 1), face);
 	}
 
-	return s->T;
+	return priv;
 }
 
 #define VECTOR_GET_INT(scm, vec, pos, tmp, ret)	\
@@ -709,8 +747,8 @@ do {											\
 	ret = s->vptr->ivalue(tmp);					\
 } while(0)
 
-static pointer load_face_table(Fl_Highlight_Editor_P *priv) {
-	scheme *s = &(priv->scm);
+static Fl_Highlight_Editor_P *load_face_table(Fl_Highlight_Editor_P *priv) {
+	scheme *s = priv->scm;
 	const char *face;
 	pointer o, v, face_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-face-table*"));
 	int font = 0, color = 0, size = 0;
@@ -762,12 +800,12 @@ static pointer load_face_table(Fl_Highlight_Editor_P *priv) {
 		}
 	}
 
-	return s->T;
+	return priv;
 }
 
 /* perform highlighting based on loaded context data */
-static void hi_parse(ContextTable *ct, const char *text, char *style, int len) {
-	if(!ct) return;
+static char *hi_parse(ContextTable *ct, const char *text, char *style, int len) {
+	if(!ct) return NULL;
 
 	for(ContextTable *it = ct; it; it = it->next) {
 		if(it->type == CONTEXT_TYPE_EXACT || it->type == CONTEXT_TYPE_TO_EOL) {
@@ -817,8 +855,8 @@ static void hi_parse(ContextTable *ct, const char *text, char *style, int len) {
 		} else if(it->type == CONTEXT_TYPE_REGEX) {
 #if USE_POSIX_REGEX
 			/*
-			 * Match against the whole text. However, how regexec() works, we continuously
-			 * repeat matching to get offsets; we are not using grouping, so grouping submatches are ignored.
+			 * Match against the whole text. However, how regexec() works, we are continuously
+			 * matching to get offsets; grouping submatches are ignored as no grouping is used.
 			 */
 			regmatch_t pmatch[1];
 			const char *str = text;
@@ -836,6 +874,8 @@ static void hi_parse(ContextTable *ct, const char *text, char *style, int len) {
 #endif
 		}
 	}
+
+	return style;
 }
 
 /* highlighting functions and callbacks */
@@ -945,27 +985,42 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 
 	Fl_Text_Display::buffer(buf);
 
-	/* this usually means we didn't initialize interpreter */
-	if(!priv) return;
+	/* new buffer requires another update callback */
+	priv->update_cb_added = false;
+	repaint(Fl_Highlight_Editor::REPAINT_ALL);
+}
 
-	/* in case we change the buffer, loaded faces and styles are still valid */
-	if(!priv->loaded_styles_and_faces) {
-		load_style_table(priv);
-		load_face_table(priv);
-		priv->loaded_styles_and_faces = true;
+void Fl_Highlight_Editor::repaint(int what, const char *mode) {
+	if(!priv || !buffer()) return;
+
+	if(what & Fl_Highlight_Editor::REPAINT_CONTEXT) {
+		puts("Repainting context...");
+		priv->clear_contexts();
+		priv = load_context_table(priv);
 	}
 
-	hi_init(priv, buf);
+	if(what & Fl_Highlight_Editor::REPAINT_STYLE) {
+		puts("Repainting styles...");
+		priv->clear_styles();
+		priv = load_face_table(priv);
+	}
 
-	if(priv->stylebuf) {
-		/* setup initial style */
-		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A',
-					   hi_unfinished_cb, 0);
+	/*
+	 * Initialize stylebuf. This function is called after we have loaded faces and contexts so it can do
+	 * initial parsing and actual painting. However, it is called before highlight_data(), so we can have
+	 * something highlighted on initial show.
+	 */
+	hi_init(priv, buffer());
 
-		buf->add_modify_callback(hi_update, priv);
-#if ENABLE_STYLEBUF_DUMP	
-		puts(priv->stylebuf->text());
-#endif
+	ASSERT(priv->stylebuf != NULL);
+
+	/* notify Fl_Text_Display highligher about styletable changes */
+	if(what & Fl_Highlight_Editor::REPAINT_STYLE) 
+		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A', hi_unfinished_cb, 0);
+
+	if(!priv->update_cb_added) {
+		buffer()->add_modify_callback(hi_update, priv);
+		priv->update_cb_added = true;
 	}
 }
 
@@ -973,15 +1028,14 @@ int Fl_Highlight_Editor::loadfile(const char *file, int buflen) {
 	if(!buffer())
 		buffer(new Fl_Text_Buffer());
 
-	ASSERT(priv != NULL);
-	scheme *pscm = &(priv->scm);
+	int ret;
 
-	scheme_run_hook(pscm, "*editor-before-loadfile-hook*", scheme_argsf(pscm, "s", file));
-	int ret = buffer()->loadfile(file, buflen);
+	if(priv) scheme_run_hook(priv->scm, "*editor-before-loadfile-hook*", scheme_argsf(priv->scm, "s", file));
 
+	ret = buffer()->loadfile(file, buflen);
 	if(ret != 0) return ret;
 
-	scheme_run_hook(pscm, "*editor-after-loadfile-hook*", scheme_argsf(pscm, "s", file));
+	if(priv) scheme_run_hook(priv->scm, "*editor-after-loadfile-hook*", scheme_argsf(priv->scm, "s", file));
 	return ret;
 }
 
@@ -989,15 +1043,14 @@ int Fl_Highlight_Editor::savefile(const char *file, int buflen) {
 	if(!buffer())
 		buffer(new Fl_Text_Buffer());
 
-	ASSERT(priv != NULL);
-	scheme *pscm = &(priv->scm);
+	int ret;
 
-	scheme_run_hook(pscm, "*editor-before-savefile-hook*", scheme_argsf(pscm, "s", file));
-	int ret = buffer()->savefile(file, buflen);
+	if(!priv) scheme_run_hook(priv->scm, "*editor-before-savefile-hook*", scheme_argsf(priv->scm, "s", file));
 
+	ret = buffer()->savefile(file, buflen);
 	if(ret != 0) return ret;
 
-	scheme_run_hook(pscm, "*editor-after-savefile-hook*", scheme_argsf(pscm, "s", file));
+	if(priv) scheme_run_hook(priv->scm, "*editor-after-savefile-hook*", scheme_argsf(priv->scm, "s", file));
 	return ret;
 }
 

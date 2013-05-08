@@ -1,5 +1,12 @@
 ;;; some FLTK constants
 
+;; constants matching context types from Fl_Highlight_Editor.cxx file
+(define CONTEXT_TYPE_INITIAL 0)
+(define CONTEXT_TYPE_TO_EOL  1)
+(define CONTEXT_TYPE_BLOCK   2)
+(define CONTEXT_TYPE_REGEX   3)
+(define CONTEXT_TYPE_EXACT   4)
+
 ;; colors
 (define FL_FOREGROUND_COLOR   0)
 (define FL_BACKGROUND2_COLOR  7)
@@ -14,18 +21,18 @@
 (define FL_LIGHT2            52)
 (define FL_LIGHT3            54)
 (define FL_BLACK             56)
-(define FL_RED               88)
-(define FL_GREEN             63)
-(define FL_YELLOW            95)
-(define FL_BLUE             216)
-(define FL_MAGENTA          248)
-(define FL_CYAN             223)
-(define FL_DARK_RED          72)
 (define FL_DARK_GREEN        60)
+(define FL_GREEN             63)
+(define FL_DARK_RED          72)
 (define FL_DARK_YELLOW       76)
+(define FL_RED               88)
+(define FL_YELLOW            95)
 (define FL_DARK_BLUE        136)
-(define FL_DARK_MAGENTA     152)
 (define FL_DARK_CYAN        140)
+(define FL_DARK_MAGENTA     152)
+(define FL_BLUE             216)
+(define FL_CYAN             223)
+(define FL_MAGENTA          248)
 (define FL_WHITE            255)
 
 ;; fonts

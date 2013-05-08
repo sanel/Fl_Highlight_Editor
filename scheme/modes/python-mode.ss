@@ -1,0 +1,10 @@
+(set! *editor-context-table*
+  '(#(0 #f              default-face)
+	#(1 "#"            comment-face)
+	#(3 "def|for|in|class|pass|not|if|elif|else|lambda|return|from|import" keyword-face)
+	#(3 "[A-Z1-9_]+" type-face)
+	#(3 "^\\s*#\\s*[a-z]+" macro-face)
+	#(3 "^\\s*#\\s*[a-z]+\\s+<.*[^>]>" macro-face)
+	#(3 "(FIXME|TODO):" important-face)
+	#(3 "(\".*?\"|'.*?')" string-face)))
+	;#(3 "(\"\"\".*?\"\"\"|\'\'\'.*?\'\'\'" string-face)))
