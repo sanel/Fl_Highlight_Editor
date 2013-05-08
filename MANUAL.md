@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 ## Some obligatory terms
 
 Before we continue explaining widget details and internals, let we
-describe some terms used in this manual. If you are using Emacs, you
+describe some terms used in this manual. If you used Emacs before, you
 will find these terms quite familiar.
 
 ### mode
@@ -80,9 +80,12 @@ Face is detail how to draw text in widget or parts of text. Each face
 has name, font name, type, size and color. For now, face does not have
 option to set background color.
 
-### style
+### context
 
-TODO
+Context is set of expressions used to find certain words or chunk of
+text to be painted with given face (or highlighted). For example,
+context can be regular expression or tokens that will designate start
+and end of the block.
 
 ### hook
 
