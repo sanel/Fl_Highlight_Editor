@@ -530,12 +530,7 @@ void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, c
 	t->pos = 0;
 	t->face = face;
 	t->type = type;
-	t->next = NULL;
-
-	if(!ctable)
-		ctable = t;
-	else
-		ctable->last->next = t;
+	t->last = t->next = NULL;
 
 	switch(type) {
 		case CONTEXT_TYPE_INITIAL:
@@ -596,6 +591,12 @@ void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, c
 		default: break;
 	}
 
+
+	/* correct pointers at the end, so we don't assign junk in case FREE_AND_RETURN() was called */
+	if(!ctable)
+		ctable = t;
+	else
+		ctable->last->next = t;
 
 	ctable->last = t;
 }
