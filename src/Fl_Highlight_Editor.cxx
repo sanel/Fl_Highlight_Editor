@@ -429,6 +429,9 @@ static pointer _editor_repaint_face_chaged(scheme *s, pointer args) {
 	return s->T;
 }
 
+static pointer _to_fltk_color(scheme *s, pointer args) {
+}
+
 /* export this symbols to intepreter */
 static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* So functions can access buffer(), self and etc. Accessed with 's->ext_data'. */
@@ -437,6 +440,7 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* base functions */
 	SCHEME_DEFINE2(s, _file_exists, "file-exists?", "Check if given file is accessible.");
 	SCHEME_DEFINE2(s, _system, "system", "Run external command.");
+	SCHEME_DEFINE2(s, _to_fltk_color, "fltk-color", "Convert HTML or RGB color code to FLTK color.");
 
 #if USE_POSIX_REGEX
 	SCHEME_DEFINE2(s, _rx_compile, "regex-compile",
@@ -808,6 +812,9 @@ static Fl_Highlight_Editor_P *load_face_table(Fl_Highlight_Editor_P *priv) {
 static char *hi_parse(ContextTable *ct, const char *text, char *style, int len) {
 	if(!ct) return NULL;
 
+	/* repaint region with default style first */
+	memset(style, 'A', len);
+
 	for(ContextTable *it = ct; it; it = it->next) {
 		if(it->type == CONTEXT_TYPE_EXACT || it->type == CONTEXT_TYPE_TO_EOL) {
 			const char *p, *what = it->object.exact;
@@ -892,7 +899,6 @@ static void hi_init(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf) {
 	text = buf->text();
 
 	/* the first style is always marked with 'A' */
-	memset(style, 'A', buf->length());
 	style[buf->length()] = '\0';
 
 	if(!priv->stylebuf)

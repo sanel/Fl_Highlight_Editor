@@ -37,7 +37,9 @@
 
 (define (editor-run-hook hook-name hook . args)
   (for-each (lambda (func)
-			  (apply func args))
+			  (if (null? args)
+			    (func)
+				(apply func args)))
 			hook))
 
 (define (editor-print-hook hook)
@@ -77,10 +79,17 @@
 			  (let* ([path    (string-append "scheme/modes/" mode ".ss")]
 					 [exists? (file-exists? path)])
 				(when exists?
+				  (println "Loading mode " mode)
 				  (load path)
 				  (editor-repaint-context-changed)
 				  (editor-repaint-face-changed)
 				  (set! *editor-current-mode* mode)
+
+				  ;; now load <mode-name>-hook variable if defined
+				  (let1 mode-sym (string->symbol (string-append mode "-hook"))
+					(when (defined? mode-sym)
+					  (editor-run-hook (symbol->string mode-sym) (eval mode-sym))))
+
 				  (return #t) ) ) ) ) ) ) )
 	lst))
 
@@ -98,7 +107,8 @@
 (define *editor-auto-mode-table*
   '(("(\\.[CchH]|\\.[hc]pp|\\.[hc]xx|\\.[hc]\\+\\+|\\.CC)$" . c-mode)
 	("(\\.py|\\.pyc)$" . python-mode)
-	("(\\.md)$" . markdown-mode)))
+	("(\\.md)$" . markdown-mode)
+	("(\\.ss|\\.scm|\\.scheme)$" . scheme-mode)))
 
 (add-hook! *editor-before-loadfile-hook*
   (lambda (f)
