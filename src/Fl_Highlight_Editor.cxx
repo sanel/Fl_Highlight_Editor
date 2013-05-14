@@ -429,6 +429,18 @@ static pointer _editor_repaint_face_chaged(scheme *s, pointer args) {
 	return s->T;
 }
 
+static pointer _editor_set_background_color(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_integer(arg),
+					   "Expected number as first argument.");
+
+	priv->self->color(s->vptr->ivalue(arg));
+	return s->T;
+}
+
 /* export this symbols to intepreter */
 static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* So functions can access buffer(), self and etc. Accessed with 's->ext_data'. */
@@ -458,6 +470,7 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	SCHEME_DEFINE2(s, _get_tab_width, "get-tab-width", "Get TAB width. If buffer not available, returns -1.");
 	SCHEME_DEFINE2(s, _editor_repaint_context_chaged, "editor-repaint-context-changed", "Update global context table and redraw.");
 	SCHEME_DEFINE2(s, _editor_repaint_face_chaged, "editor-repaint-face-changed", "Update global face table and redraw.");
+	SCHEME_DEFINE2(s, _editor_set_background_color, "editor-set-background-color", "Set editor background color. FLTK colors codes are accepted.");
 }
 
 /* core widget code */
@@ -988,9 +1001,11 @@ void Fl_Highlight_Editor::buffer(Fl_Text_Buffer *buf) {
 
 	Fl_Text_Display::buffer(buf);
 
-	/* new buffer requires another update callback */
-	priv->update_cb_added = false;
-	repaint(Fl_Highlight_Editor::REPAINT_ALL);
+	if(priv) {
+		/* new buffer requires another update callback */
+		priv->update_cb_added = false;
+		repaint(Fl_Highlight_Editor::REPAINT_ALL);
+	}
 }
 
 void Fl_Highlight_Editor::repaint(int what, const char *mode) {
