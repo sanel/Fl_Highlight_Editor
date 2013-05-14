@@ -95,3 +95,5 @@ a hook will be called; the same applies when you save file with ''savefile()''.
 
 Hooks represents efficient way to extend or alter widget behavior,
 without writing C++ code.
+
+TODO: complete it
