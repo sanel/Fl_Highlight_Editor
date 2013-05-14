@@ -429,9 +429,6 @@ static pointer _editor_repaint_face_chaged(scheme *s, pointer args) {
 	return s->T;
 }
 
-static pointer _to_fltk_color(scheme *s, pointer args) {
-}
-
 /* export this symbols to intepreter */
 static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* So functions can access buffer(), self and etc. Accessed with 's->ext_data'. */
@@ -440,7 +437,6 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	/* base functions */
 	SCHEME_DEFINE2(s, _file_exists, "file-exists?", "Check if given file is accessible.");
 	SCHEME_DEFINE2(s, _system, "system", "Run external command.");
-	SCHEME_DEFINE2(s, _to_fltk_color, "fltk-color", "Convert HTML or RGB color code to FLTK color.");
 
 #if USE_POSIX_REGEX
 	SCHEME_DEFINE2(s, _rx_compile, "regex-compile",
@@ -707,8 +703,7 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 }
 
 const char *Fl_Highlight_Editor::script_folder(void) {
-	if(!priv)
-		return NULL;
+	if(!priv) return NULL;
 	return priv->script_path;
 }
 

@@ -47,6 +47,16 @@
 			  (println (get-closure-code func)))
 			hook))
 
+;; search for a file in *load-path*; returns full path or #f if not found
+(define-with-return (editor-find-file file)
+  (for-each
+    (lambda (path)
+	  (let ([path (string-append path "/" file)])
+		(if (file-exists? path)
+		  (return path))))
+	*load-path*)
+  #f)
+
 ;; (forward-char n)
 (define (forward-char n)
   (goto-char (+ n (point))))
@@ -59,6 +69,52 @@
 
 (define (buffer-file-name)
   *editor-buffer-file-name*)
+
+;;; (define-mode)
+
+(define (quoted? val)
+  (and (pair? val)
+	   (eq? 'quote (car val))))
+
+(define (define-mode-lowlevel mode doc . args)
+  (let1 ret '()
+    (for-each
+	  (lambda (x)
+		(case (car x)
+		  ;; syn part, in form (syn context-type context face)
+		  [(syn)
+		   (unless (= 4 (length x))
+		     (error 'define-mode "syn token expect 4 elements, but got: " x))
+
+		   ;; parse 'syn' list; here quoting elements is allowed (it can be confusing for user what
+		   ;; is quoted and not) and if done so, we just unquote them
+		   (let* ([item (cadr x)]
+				  [item (if (quoted? item) (eval item) item)]
+				  [num (case item
+						[(default) 0]
+						[(eol)     1]
+						[(block)   2]
+						[(regex)   3]
+						[(exact)   4]
+						[else
+						  (error 'define-mode "Unrecognized context type:" (cadr x))])]
+				  [what (let1 tmp (list-ref x 2)
+						  (if (quoted? tmp) (eval tmp) tmp))]
+				  [face (list-ref x 3)]
+				  [face (if (quoted? face) (eval face) face)])
+			 (add-to-list! ret (vector num what face)))]
+
+		  ;; callbacks, executed before hook is started and after was started
+		  ;; TODO: not completed yet so we just ignore it for now
+		  [(before after) #t]
+		  [else
+		    (error 'define-mode "Got unrecognized token:" (car x)) ] ) )
+	  (car args) )
+	;; set global table in reverse order, so the table represent the order as set here
+	(set! *editor-context-table* (reverse ret)) ))
+
+(define-macro (define-mode mode doc . args)
+  `(define-mode-lowlevel ',mode ,doc ',args))
 
 ;; load given mode by matching against filename
 (define-with-return (editor-try-load-mode-by-filename lst filename)
@@ -76,9 +132,8 @@
 			(if (and *editor-current-mode*
 					 (string=? *editor-current-mode* mode))
 			  (return #t)
-			  (let* ([path    (string-append "scheme/modes/" mode ".ss")]
-					 [exists? (file-exists? path)])
-				(when exists?
+			  (let1 path (editor-find-file (string-append mode ".ss"))
+				(when path
 				  (println "Loading mode " mode)
 				  (load path)
 				  (editor-repaint-context-changed)
@@ -86,10 +141,10 @@
 				  (set! *editor-current-mode* mode)
 
 				  ;; now load <mode-name>-hook variable if defined
-				  (let1 mode-sym (string->symbol (string-append mode "-hook"))
-					(when (defined? mode-sym)
-					  (editor-run-hook (symbol->string mode-sym) (eval mode-sym))))
-
+				  (let* ([mode-hook-str (string-append mode "-hook")]
+						 [mode-hook-sym (string->symbol mode-hook-str)])
+					(when (defined? mode-hook-sym)
+					  (editor-run-hook mode-hook-str (eval mode-hook-sym)) ) )
 				  (return #t) ) ) ) ) ) ) )
 	lst))
 
@@ -109,6 +164,9 @@
 	("(\\.py|\\.pyc)$" . python-mode)
 	("(\\.md)$" . markdown-mode)
 	("(\\.ss|\\.scm|\\.scheme)$" . scheme-mode)))
+
+;; FIXME: register 'modes' subfolder; do this better
+(add-to-list! *load-path* (string-append (car *load-path*) "/modes"))
 
 (add-hook! *editor-before-loadfile-hook*
   (lambda (f)
