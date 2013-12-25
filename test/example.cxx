@@ -25,6 +25,11 @@ static void open_cb(Fl_Widget *w, void *data) {
 }
 
 int main(int argc, char **argv) {
+	if(argc != 2) {
+		printf("Usage: %s [filename]\n", argv[0]);
+		return 1;
+	}
+
 	Fl_Double_Window *win = new Fl_Double_Window(400, 400, "Highlight test");
 	win->begin();
 		Fl_Box *rbox = new Fl_Box(25, 25, 60, 41);
@@ -32,7 +37,7 @@ int main(int argc, char **argv) {
 
 		Fl_Highlight_Editor *editor = new Fl_Highlight_Editor(10, 10, 380, 350);
 		editor->init_interpreter("./scheme");
-		editor->loadfile("test/example.cxx");
+		editor->loadfile(argv[1]);
 
 		Fl_Button *openb = new Fl_Button(205, 365, 90, 25, "&Open");
 		openb->callback(open_cb, editor);
@@ -40,7 +45,8 @@ int main(int argc, char **argv) {
 		Fl_Button *closeb = new Fl_Button(300, 365, 90, 25, "&Close");
 		closeb->callback(close_cb, win);
 	win->end();
-	win->show(argc, argv);
+	win->show();
+
 	int ret = Fl::run();
 	delete editor;
 	return ret;

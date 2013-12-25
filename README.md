@@ -17,8 +17,8 @@ widgets with ability to highlight the text and modify it with embeded
 [Scheme](http://en.wikipedia.org/wiki/Scheme_%20programming_language%20) scripting language.
 
 The widget is fully self-contained and it doesn't depends on anything
-except FLTK library, making it suitable for putting inside
-existing project.
+except FLTK library, making it suitable for embedding inside existing
+project.
 
 Fl_Highlight_Editor design is inspired with
 [Emacs](http://www.gnu.org/software/emacs) editor and you will find
@@ -38,6 +38,13 @@ make
 ```
 
 will compile the code. To see it in action, run examples in *test* folder.
+
+If you would like to embed core Scheme files inside binary, keeping
+highlight code separate, you can run:
+
+```
+make BUNDLE_SCRIPTS=1
+```
 
 ## License
 

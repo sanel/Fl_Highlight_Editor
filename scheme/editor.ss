@@ -163,6 +163,7 @@
   '(("(\\.[CchH]|\\.[hc]pp|\\.[hc]xx|\\.[hc]\\+\\+|\\.CC)$" . c-mode)
 	("(\\.py|\\.pyc)$" . python-mode)
 	("(\\.md)$" . markdown-mode)
+	("(\\.fl)$" . fltk-mode)
 	("(\\.ss|\\.scm|\\.scheme)$" . scheme-mode)))
 
 ;; FIXME: register 'modes' subfolder; do this better
