@@ -18,6 +18,7 @@
 ;;; setup essential editor stuff; called after boot.ss
 
 (require 'utils)
+(require 'constants)
 
 ;;; globals
 
@@ -82,6 +83,19 @@
   (and (pair? val)
        (eq? 'quote (car val))))
 
+;(define-macro (define-mode mode doc . args)
+;  `(let ([syn (lambda (type what face)
+;			   (vector
+;				 (case type
+;				   [(default) 0]
+;				   [(eol) 1]
+;				   [(block) 2]
+;				   [(regex) 3]
+;				   [(exact) 4]
+;				   [else (error 'syn "Unrecognized context type:" type "in expression" ',args)])
+;				what face))])
+;	 (set! *editor-context-table* (list ,@args))))
+
 (define (define-mode-lowlevel mode doc . args)
   (let1 ret '()
     (for-each
@@ -105,7 +119,9 @@
                         [else
                           (error 'define-mode "Unrecognized context type:" (cadr x) "in expression:" x)])]
                   [what (let1 tmp (list-ref x 2)
-                          (if (quoted? tmp) (eval tmp) tmp))]
+						  (cond
+						    [(quoted? tmp) (eval tmp)]
+						    [else tmp]))]
                   [face (list-ref x 3)]
                   [face (if (quoted? face) (eval face) face)])
              (add-to-list! ret (vector num what face)))]
@@ -162,7 +178,8 @@
     ("(\\.md)$" . markdown-mode)
     ("(\\.fl)$" . fltk-mode)
     ("(\\.ss|\\.scm|\\.scheme)$" . scheme-mode)
-    ("(\\.ht|\\.htm|\\.html|\\.xhtml|\\.sgml)$" . html-mode)))
+    ("(\\.ht|\\.htm|\\.html|\\.xhtml|\\.sgml)$" . html-mode)
+	("([mM]akefile|GNUMakefile|\\.make)$" . make-mode)))
 
 ;; FIXME: register 'modes' subfolder; do this better
 (add-to-list! *load-path* (string-append (car *load-path*) "/modes"))
@@ -172,13 +189,42 @@
     (set! *editor-buffer-file-name* f)
     (editor-try-load-mode-by-filename *editor-auto-mode-table* f)))
 
+;;; default themes
+
+(define (default-lite-theme)
+  (editor-set-background-color FL_LIGHT1)
+  (set! *editor-face-table*
+    (list
+	  (vector 'default-face FL_BLACK 12 FL_HELVETICA)
+	  (vector 'comment-face FL_BLUE  12 FL_HELVETICA)
+	  (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
+	  (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
+	  (vector 'type-face FL_DARK_GREEN 12 FL_HELVETICA)
+	  (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
+	  (vector 'string-face FL_DARK_RED 12 FL_HELVETICA))))
+
+(define (default-dark-theme)
+  (editor-set-background-color FL_BLACK)
+  (set! *editor-face-table*
+    (list
+	  (vector 'default-face FL_DARK1 12 FL_HELVETICA)
+	  (vector 'comment-face FL_RED   12 FL_HELVETICA)
+	  (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
+	  (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
+	  (vector 'type-face FL_DARK_GREEN 12 FL_HELVETICA)
+	  (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
+	  (vector 'string-face FL_DARK_RED 12 FL_HELVETICA))))
+
+(default-lite-theme)
+
 ;;; default faces
 
-(set! *editor-face-table*
-  '(#(default-face   56  12 0)
-    #(comment-face   216 12 0)
-    #(keyword-face   216 12 0)
-    #(important-face 216 12 1)
-    #(macro-face     72  12 0)
-    #(type-face      60  12 0)
-    #(string-face    72  12 0)))
+;(editor-set-background-color FL_LIGHT1)
+;(set! *editor-face-table*
+;  '(#(default-face   56  12 0)
+;    #(comment-face   216 12 0)
+;    #(keyword-face   216 12 0)
+;    #(important-face 216 12 1)
+;    #(macro-face     72  12 0)
+;    #(type-face      60  12 0)
+;    #(string-face    72  12 0)))

@@ -1030,7 +1030,11 @@ void Fl_Highlight_Editor::repaint(int what, const char *mode) {
 	 */
 	hi_init(priv, buffer());
 
-	ASSERT(priv->stylebuf != NULL);
+	/* ASSERT(priv->stylebuf != NULL); */
+	if(priv->stylebuf == NULL) {
+		puts("No stylebuf!! Check scheme code or something went wrong...");
+		return;
+	}
 
 	/* notify Fl_Text_Display highligher about styletable changes */
 	if(what & Fl_Highlight_Editor::REPAINT_STYLE) 
