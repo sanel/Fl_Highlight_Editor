@@ -264,4 +264,31 @@ are going to highlight all *FIXME:* words:
 This part will quickly explain internals and caveats about modes and
 rules.
 
-Each mode is loaded 
+Fl_Highlight_Editor use hooks to determine when to load a mode so two
+of them are important:
+
+* `*editor-before-loadfile-hook*` - called before file was loaded in
+  widget
+* `*editor-after-loadfile-hook*` - called after file content was put
+  in widget
+
+`*editor-before-loadfile-hook*` will call
+`(editor-try-load-mode-by-filename)` function, which will try to match
+(using regular expressions) loaded filename against
+`*editor-auto-mode-table*` mapping table; if match was found,
+associated mode will be loaded.
+
+This means on each file load above logic will be repeated, which is
+intentional: idea is to have ability to reload modes in runtime so
+they can be changed without deleting the widget.
+
+Interpreter is involved only during mode loading and constructing
+matching rules; from there C++ code (including FLTK paint engine) will
+continue the work, using compiled expression, which will keep
+highlighting fast.
+
+#### Rule executing order
+
+Rules inside `define-mode` are executed *in order*, from top to bottom
+and that can affect painting strategy (or if used smartly, can do
+things that would require much more complex stuff in backend).
