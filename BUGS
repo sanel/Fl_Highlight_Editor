@@ -1,6 +1,6 @@
 -*- org -*-
 
-* Known bugs [0/3]
+* Known bugs [0/4]
   - [ ] Block handling isn't good: if block is in multiple lines, due
     how optimized repaint routine hi_update() works, it will only
     match the first line since hi_update() will send only modified
@@ -16,5 +16,8 @@
     indirect loss, so I'm not sure how serious this is. This problem
     can be solved by using scheme_init_custom_alloc() and tracking
     malloc/free calls, where the rest will be free-ed in widget destructor.
+	
+  - [ ] Inside '(syn ...)' construct it is not possible to evaluate
+    forms nor to get variables for top environment.
 	
 * Unknown bugs please report on https://github.com/sanel/Fl_Highlight_Editor/issues

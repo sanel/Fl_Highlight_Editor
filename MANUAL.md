@@ -98,7 +98,7 @@ without writing C++ code.
 ## Adding your own mode
 
 All modes should exist in ''FOLDER/modes'', where FOLDER is location
-you load with C++ function 'init_interpreter(FOLDER)'. Default name,
+you loaded with C++ function 'init_interpreter(FOLDER)'. Default name,
 distributed with this library is *scheme*, but you can change it to
 suit your needs.
 
@@ -117,36 +117,116 @@ In editor open file ''FOLDER/modes/make-mode.ss'' and write:
   (syn 'eol   "#" 'comment-face)
 
   ;; make rule syntax
-  (syn 'regex "^[^:]*:" keyword-face)
+  (syn 'regex "^[^:]*:" 'keyword-face)
 
   ;; make keywords
-  (syn 'regex "^\\s*(ifeq|endif|include|echo)\\s+" keyword-face)
+  (syn 'regex "^\\s*(ifeq|endif|include|echo)\\s+" 'keyword-face)
 
   ;; magic variable
-  (syn 'regex "\\$[@<#\\^]" keyword-face)
+  (syn 'regex "\\$[@<#\\^]" 'keyword-face)
 
   ;; user written variables
-  (syn 'regex "\\$\\(\\w+\\)" type-face)
+  (syn 'regex "\\$\\(\\w+\\)" 'type-face)
 
   ;; @echo and etc
-  (syn 'regex "@\\w+" keyword-face)
+  (syn 'regex "@\\w+" 'keyword-face)
 
   ;; external command in form $(command params)
-  (syn 'regex "\\$\\([a-z]+\\s+[^\\)]*\\)" keyword-face))
+  (syn 'regex "\\$\\([a-z]+\\s+[^\\)]*\\)" 'keyword-face))
 ```
 
 First we are starting with `define-mode` which accept mode name and
-documentation string, explaining what mode does and details, if
-needed. For now documentation handling is not implemented, but this
-feature is planned in future releases. Next we are adding `rules`,
-marked with *(syn ...)* construct.
+documentation string, explaining what mode does and details. For now
+documentation handling is not implemented, but this feature is planned
+in future releases. Next we are adding `rules`, marked with
+*(syn ...)* construct.
 
-Rules will explaint to Fl_Highlight_Editor what to look for in text
-and with what face to paint it, if found. Widget understainds a couple
-of builtin rule types:
+Rules will tell to Fl_Highlight_Editor what to look for in text and
+with what face to paint it. There are a couple of builtin rule types:
 
-* default - default face for all unmatched rules
-* regex - GNU regular expression style
-* eol - match exatch string and paint everything up to the end of line
-* exact - exact match
-* block - search for blocks, like block comments and etc.
+#### default
+
+Default face for all unmatched (default) rules. This face uses only
+face name, without matching details so form:
+
+```scheme
+(syn 'default #f 'default-face)
+```
+
+should be set first.
+
+#### regex
+
+regex will tell matcher to use regular expressions (GNU style) to look
+for text parts. For now, regular expression implementation doesn't
+handle grouping.
+
+To use it, you are basically say this:
+
+```scheme
+(syn 'regex "\\$[@<#\\^]" FACE-NAME)
+```
+
+where `FACE-NAME` is one of known (or yet unknown) faces. Note that
+for escaping, you will need to use **double** backslashes; one will be
+seen by interpreter as escaping character and one by regular
+expression engine.
+
+#### eol
+
+This is `end of line` matcher: it will search for exact string token
+and paint everything up to the end of the line. It is primarly used
+for comments or headings, where full line can be painted with single
+or multiple characters.
+
+For example, to paint line with C++-like comments, you can use:
+
+```scheme
+(syn 'eol "//" 'comment-face)
+```
+
+String used for matching is exact string and matcher will search for
+first occurence in the line. Given above rule, it is easily applied on
+cases like:
+
+```cpp
+//////// this is some c++ comment /////////
+```
+
+#### block
+
+`block` should target code blocks, which usually has staring and
+ending markers. This option also supports blocks with the same
+starting and ending markers.
+
+`block` accepts quoted pair, where first element is staring marker
+should be looked for and last element is ending marker. For example:
+
+```scheme
+(syn 'block '("<!--" . "-->") 'comment-face)
+```
+
+In Scheme parlance, constructs like `'(X . Y)` are pairs and **are
+not** the same as `'(X Y)` so please be careful about it.
+
+This rule will behave similarily to `eol`: it will search first
+occurence of starting block marker, then will search first occurence
+of ending block marker and so on. With this beavior, things like:
+
+```html
+<!--
+  this is multiline
+  comment with <!-- YIKES
+  -->
+```
+
+should work as expected.
+
+#### exact
+
+This rule type if for search exact strings inside text. Let say you
+are going to highlight all *FIXME:* words:
+
+```scheme
+(syn 'exact "FIXME:" 'important-face)
+```
