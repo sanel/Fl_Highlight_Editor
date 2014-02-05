@@ -6,6 +6,7 @@
 * [Initializing widget and interpreter](#initializing-widget-and-interpreter)
 * [Some obligatory terms](#some-obligatory-terms)
 * [Adding your own mode](#adding-your-own-mode)
+  * [Mode and rule details](#mode-and-rule-details)
 
 ## Introduction
 
@@ -140,6 +141,9 @@ In editor open file ''FOLDER/modes/make-mode.ss'' and write:
 
   ;; external command in form $(command params)
   (syn 'regex "\\$\\([a-z]+\\s+[^\\)]*\\)" 'keyword-face))
+
+;; now to invoke this mode on certain file types, you place
+(add-to-list-once! *editor-auto-mode-table* '("([mM]akefile|\\.make)$" . make-mode))
 ```
 
 First we are starting with `define-mode` which accept mode name and
@@ -148,8 +152,25 @@ documentation handling is not implemented, but this feature is planned
 in future releases. Next we are adding `rules`, marked with
 *(syn ...)* construct.
 
-Rules will tell to Fl_Highlight_Editor what to look for in text and
-with what face to paint it. There are a couple of builtin rule types:
+Before going into details about `rules`, let quickly describe a line:
+
+```scheme
+(add-to-list-once! *editor-auto-mode-table* '("([mM]akefile|\\.make)$" . make-mode))
+```
+
+Every mode you create should be invoked on some action and in this
+case the action is matching against file
+name. `*editor-auto-mode-table*` is Fl_Highlight_Editor global
+variable containing mappings of filenames (or regular expressions
+matching agains loaded file path) and modes: when loaded path has
+successful match, associated mode will be loaded.
+
+Details about how this works check in
+[Mode and rule details](#mode-and-rule-details).
+
+Now, lets get back to rules: rules will tell to Fl_Highlight_Editor
+what to look for in text and with what face to paint it. There are a
+couple of builtin rule types:
 
 #### default
 
@@ -237,3 +258,10 @@ are going to highlight all *FIXME:* words:
 ```scheme
 (syn 'exact "FIXME:" 'important-face)
 ```
+
+### Mode and rule details
+
+This part will quickly explain internals and caveats about modes and
+rules.
+
+Each mode is loaded 
