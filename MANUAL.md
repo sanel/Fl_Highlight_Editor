@@ -1,5 +1,10 @@
 # Fl_Highlight_Editor manual
 
+## Table of contents
+
+* [Introduction](#introduction)
+* [Initializing widget and interpreter](#initializing-widget-and-interpreter)
+
 ## Introduction
 
 This manual will try to give you some introduction on how to use
@@ -161,7 +166,7 @@ regex will tell matcher to use regular expressions (GNU style) to look
 for text parts. For now, regular expression implementation doesn't
 handle grouping.
 
-To use it, you are basically say this:
+To use it, you will say something like this:
 
 ```scheme
 (syn 'regex "\\$[@<#\\^]" FACE-NAME)
