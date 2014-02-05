@@ -437,8 +437,40 @@ static pointer _editor_set_background_color(scheme *s, pointer args) {
 	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_integer(arg),
 					   "Expected number as first argument.");
 
-	priv->self->color(s->vptr->ivalue(arg));
+	int c = s->vptr->ivalue(arg);
+	priv->self->color(c, FL_SELECTION_COLOR);
 	return s->T;
+}
+
+static pointer _editor_dump_style_table(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer ret = s->NIL, tmp;
+
+	for(int i = 0; i < priv->styletable_last; i++) {
+		tmp = s->vptr->cons(s, s->vptr->mk_character(s, 'A' + i), s->NIL);
+		/* color, font, size */
+		tmp = s->vptr->cons(s, s->vptr->mk_integer(s, priv->styletable[i].color), tmp);
+		tmp = s->vptr->cons(s, s->vptr->mk_integer(s, priv->styletable[i].size), tmp);
+		tmp = s->vptr->cons(s, s->vptr->mk_integer(s, priv->styletable[i].font), tmp);
+
+		ret = s->vptr->cons(s, scheme_reverse_in_place(s, s->NIL, tmp), ret);
+	}
+
+	return scheme_reverse_in_place(s, s->NIL, ret);
+}
+
+static pointer _editor_dump_style_buf(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+
+	pointer ret;
+	char *txt = priv->stylebuf ? priv->stylebuf->text() : NULL;
+	const char *p = txt ? (const char*)txt : "";
+	ret = s->vptr->mk_string(s, p);
+	if(txt) free(txt);
+
+	return ret;
 }
 
 /* export this symbols to intepreter */
@@ -471,6 +503,10 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	SCHEME_DEFINE2(s, _editor_repaint_context_chaged, "editor-repaint-context-changed", "Update global context table and redraw.");
 	SCHEME_DEFINE2(s, _editor_repaint_face_chaged, "editor-repaint-face-changed", "Update global face table and redraw.");
 	SCHEME_DEFINE2(s, _editor_set_background_color, "editor-set-background-color", "Set editor background color. FLTK colors codes are accepted.");
+
+	/* for debugging */
+	SCHEME_DEFINE2(s, _editor_dump_style_table, "editor-dump-style-table", "Returns internal copy of style table. For debugging purposes.");
+	SCHEME_DEFINE2(s, _editor_dump_style_buf, "editor-dump-style-buffer", "Returns internal copy of style buffer. For debugging purposes.");
 }
 
 /* core widget code */
@@ -933,10 +969,6 @@ static void hi_init(Fl_Highlight_Editor_P *priv, Fl_Text_Buffer *buf) {
 	free(text);
 }
 
-static void hi_unfinished_cb(int, void*) {
-	/* nothing done */
-}
-
 /* Mostly stolen from FLTK editor.cxx example. Obviously (c)-ed by editor.cxx author... */
 static void hi_update(int pos, int ninserted, int ndeleted,
 					  int  nrestyled, const char *deletedtext,
@@ -1052,7 +1084,7 @@ void Fl_Highlight_Editor::repaint(int what, const char *mode) {
 
 	/* notify Fl_Text_Display highligher about styletable changes */
 	if(what & Fl_Highlight_Editor::REPAINT_STYLE) 
-		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A', hi_unfinished_cb, 0);
+		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A', 0, 0);
 
 	if(!priv->update_cb_added) {
 		buffer()->add_modify_callback(hi_update, priv);

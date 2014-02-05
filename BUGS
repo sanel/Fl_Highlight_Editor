@@ -1,6 +1,6 @@
 -*- org -*-
 
-* Known bugs [0/4]
+* Known bugs [0/5]
   - [ ] Block handling isn't good: if block is in multiple lines, due
     how optimized repaint routine hi_update() works, it will only
     match the first line since hi_update() will send only modified
@@ -19,5 +19,11 @@
 	
   - [ ] Inside '(syn ...)' construct it is not possible to evaluate
     forms nor to get variables for top environment.
+
+  - [ ] (set-tab-width) and (get-tab-width) works only when buffer
+    was loaded, so *editor-after-loadfile-hook* must be used to setup
+    correct size. This can be fixed by adding (global-set-tab-width)
+    that will store tab width globally (by widget instance) and apply
+	when buffer was created.
 	
 * Unknown bugs please report on https://github.com/sanel/Fl_Highlight_Editor/issues

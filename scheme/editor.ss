@@ -189,33 +189,33 @@
     (set! *editor-buffer-file-name* f)
     (editor-try-load-mode-by-filename *editor-auto-mode-table* f)))
 
+(add-hook! *editor-after-loadfile-hook*
+  (lambda (f)
+	(set-tab-width 4)))
+
 ;;; default themes
 
 (define (default-lite-theme)
   (editor-set-background-color FL_WHITE)
   (set! *editor-face-table*
     (list
-	  (vector 'default-face FL_BLACK 12 FL_HELVETICA)
-	  (vector 'comment-face FL_BLUE  12 FL_HELVETICA)
-	  (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
-	  (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
-	  (vector 'type-face FL_DARK_GREEN 12 FL_HELVETICA)
-	  (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
-	  (vector 'string-face FL_DARK_RED 12 FL_HELVETICA))))
+	  (vector 'default-face FL_BLACK 12 FL_COURIER)
+	  (vector 'comment-face FL_BLUE  12 FL_COURIER)
+	  (vector 'keyword-face FL_BLUE  12 FL_COURIER)
+	  (vector 'important-face FL_BLUE 12 FL_COURIER_BOLD)
+	  (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
+	  (vector 'attribute-face FL_DARK_CYAN 12 FL_COURIER)
+	  (vector 'string-face FL_DARK_RED 12 FL_COURIER)
+	  (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER))))
 
 (define (default-dark-theme)
   (editor-set-background-color FL_BLACK)
   (set! *editor-face-table*
     (list
-	  (vector 'default-face FL_WHITE 12 FL_HELVETICA)
-	  (vector 'comment-face FL_RED   12 FL_HELVETICA)
-	  (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
-	  (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
-	  (vector 'type-face FL_DARK_GREEN 12 FL_HELVETICA)
-	  (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
-	  (vector 'string-face FL_DARK_RED 12 FL_HELVETICA))))
+	  (vector 'default-face FL_GREEN 12 FL_COURIER)
+	  (vector 'keyword-face FL_BLUE   12 FL_COURIER))))
 
-(default-dark-theme)
+(default-lite-theme)
 
 ;;; default faces
 
