@@ -298,8 +298,7 @@ things that would require much more complex stuff in backend).
 
 Fl_Highlight_Editor organize faces in much simpler manner than
 modes. Faces are stored in global variable `*editor-face-table*` and
-are in form of list of vectors. It can look like this:
-
+are in form of list of vectors. They can look like this:
 ```scheme
 ;; this is part of (default-lite-theme)
 (set! *editor-face-table*
@@ -312,13 +311,10 @@ are in form of list of vectors. It can look like this:
     (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
     (vector 'string-face FL_DARK_RED 12 FL_HELVETICA)))
 ```
-
 Each vector is in form:
-
 ```scheme
 (vector FACE-NAME FLTK-COLOR-CODE FONT-SIZE FLTK-FONT-CODE)
 ```
-
 You can freely mix FLTK color/font codes (they are defined in
 `constants.ss` file) or their equivalent number values.
 
