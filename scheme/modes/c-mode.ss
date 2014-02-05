@@ -8,4 +8,6 @@
   (syn 'regex "^\\s*#\\s*[a-z]+" 'macro-face)
   (syn 'regex "(FIXME|TODO):"    'important-face)
   (syn 'exact "XXX"              'keyword-face)
-  (syn 'regex "(\".*?\"|'.*?')"  'string-face))
+  ;; match strings and single characters, including escape sequences
+  (syn 'regex "\"([^\"]|\\\\\"|\\\\)*\"" 'string-face)
+  (syn 'regex "'(.|\\\\\')'" 'string-face))
