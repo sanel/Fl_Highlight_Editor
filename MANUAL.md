@@ -10,8 +10,7 @@ styles) but basic Scheme, C++ and FLTK knowledge is required.
 
 If you are not familiar with the Scheme language, please read
 [Yet Another Scheme Tutorial](http://www.shido.info/lisp/idx_scm_e.html)
-or any other online tutorial you find suitable; after all, there are
-many Scheme tutorials online.
+or any other online tutorial you find suitable.
 
 ## Initializing widget and interpreter
 
@@ -96,4 +95,58 @@ a hook will be called; the same applies when you save file with ''savefile()''.
 Hooks represents efficient way to extend or alter widget behavior,
 without writing C++ code.
 
-TODO: complete it
+## Adding your own mode
+
+All modes should exist in ''FOLDER/modes'', where FOLDER is location
+you load with C++ function 'init_interpreter(FOLDER)'. Default name,
+distributed with this library is *scheme*, but you can change it to
+suit your needs.
+
+Mode files should be name as ''MODE-mode.ss'', where MODE is name of
+your mode file, e.g. `make-mode.ss`. Let we write make-mode, showing
+details behind it (Fl_Highlight_Editor comes with make-mode, but for
+the sake of this example, we will assume writing it from scratch).
+
+In editor open file ''FOLDER/modes/make-mode.ss'' and write:
+
+```scheme
+(define-mode make-mode
+  "Mode for editing Make files."
+  (syn 'default #f 'default-face)
+
+  (syn 'eol   "#" 'comment-face)
+
+  ;; make rule syntax
+  (syn 'regex "^[^:]*:" keyword-face)
+
+  ;; make keywords
+  (syn 'regex "^\\s*(ifeq|endif|include|echo)\\s+" keyword-face)
+
+  ;; magic variable
+  (syn 'regex "\\$[@<#\\^]" keyword-face)
+
+  ;; user written variables
+  (syn 'regex "\\$\\(\\w+\\)" type-face)
+
+  ;; @echo and etc
+  (syn 'regex "@\\w+" keyword-face)
+
+  ;; external command in form $(command params)
+  (syn 'regex "\\$\\([a-z]+\\s+[^\\)]*\\)" keyword-face))
+```
+
+First we are starting with `define-mode` which accept mode name and
+documentation string, explaining what mode does and details, if
+needed. For now documentation handling is not implemented, but this
+feature is planned in future releases. Next we are adding `rules`,
+marked with *(syn ...)* construct.
+
+Rules will explaint to Fl_Highlight_Editor what to look for in text
+and with what face to paint it, if found. Widget understainds a couple
+of builtin rule types:
+
+* default - default face for all unmatched rules
+* regex - GNU regular expression style
+* eol - match exatch string and paint everything up to the end of line
+* exact - exact match
+* block - search for blocks, like block comments and etc.
