@@ -4,6 +4,8 @@
 
 * [Introduction](#introduction)
 * [Initializing widget and interpreter](#initializing-widget-and-interpreter)
+* [Some obligatory terms](#some-obligatory-terms)
+* [Adding your own mode](#adding-your-own-mode)
 
 ## Introduction
 
