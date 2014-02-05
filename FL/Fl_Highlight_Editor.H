@@ -65,6 +65,17 @@ public:
 	void init_interpreter(const char *script_folder, bool do_repl = false);
 
 	/**
+	 * Load Scheme file and interpret it. This function can be used to load additional scripts
+	 * (e.g. user customized) from home folder or other location.
+	 * 
+	 * Make sure init_interpreter() was called before this call.
+	 */
+	void load_script_file(const char *path);
+
+	/** Evaluate Scheme code. Make sure init_interpreter() was called before this call. */
+	void load_script_string(const char *str);
+
+	/**
 	 * Returns path for script folder. Unless init_interpreter() was called before, it will return NULL.
 	 * Returned pointer points to internally allocated string and will be freed when object was destroyed.
 	 */

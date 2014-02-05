@@ -715,6 +715,20 @@ void Fl_Highlight_Editor::init_interpreter(const char *script_folder, bool do_re
 	priv->scm = scm;
 }
 
+void Fl_Highlight_Editor::load_script_file(const char *path) {
+	if(!priv) return;
+	FILE *fd = fopen(path, "r");
+	if(!fd) return;
+
+	scheme_load_named_file(priv->scm, fd, path);
+	fclose(fd);
+}
+
+void Fl_Highlight_Editor::load_script_string(const char *str) {
+	if(!priv) return;
+	scheme_load_string(priv->scm, str);
+}
+
 const char *Fl_Highlight_Editor::script_folder(void) {
 	if(!priv) return NULL;
 	return priv->script_path;

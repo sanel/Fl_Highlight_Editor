@@ -215,7 +215,7 @@
 	  (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
 	  (vector 'string-face FL_DARK_RED 12 FL_HELVETICA))))
 
-(default-lite-theme)
+(default-dark-theme)
 
 ;;; default faces
 
