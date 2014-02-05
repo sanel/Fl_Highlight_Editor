@@ -7,6 +7,7 @@
 * [Some obligatory terms](#some-obligatory-terms)
 * [Adding your own mode](#adding-your-own-mode)
   * [Mode and rule details](#mode-and-rule-details)
+* [Adding new faces](#adding-new-faces)
 
 ## Introduction
 
@@ -292,3 +293,39 @@ highlighting fast.
 Rules inside `define-mode` are executed *in order*, from top to bottom
 and that can affect painting strategy (or if used smartly, can do
 things that would require much more complex stuff in backend).
+
+## Adding new faces
+
+Fl_Highlight_Editor organize faces in much simpler manner than
+modes. Faces are stored in global variable `*editor-face-table*` and
+are in form of list of vectors. It can look like this:
+
+```scheme
+;; this is part of (default-lite-theme)
+(set! *editor-face-table*
+  (list
+    (vector 'default-face FL_BLACK 12 FL_HELVETICA)
+    (vector 'comment-face FL_BLUE  12 FL_HELVETICA)
+    (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
+    (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
+    (vector 'type-face FL_DARK_GREEN 12 FL_HELVETICA)
+    (vector 'attribute-face FL_DARK_CYAN 12 FL_HELVETICA)
+    (vector 'string-face FL_DARK_RED 12 FL_HELVETICA)))
+```
+
+Each vector is in form:
+
+```scheme
+(vector FACE-NAME FLTK-COLOR-CODE FONT-SIZE FLTK-FONT-CODE)
+```
+
+You can freely mix FLTK color/font codes (they are defined in
+`constants.ss` file) or their equivalent number values.
+
+Face names, unlike in Emacs, are simple symbols and can be anything;
+Fl_Highlight_Editor will just use them as keys to find appropriate
+color/size/font triplets. To add new face, you can use this snippet:
+
+```scheme
+(add-to-list-once! *editor-face-table* #('my-cool-face FL_RED 12 FL_HELVETICA))
+```
