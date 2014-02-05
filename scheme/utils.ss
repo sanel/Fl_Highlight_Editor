@@ -7,21 +7,21 @@
 
 (define-macro (if-let1 a b . body)
   `(let ([,a ,b])
-	 (if ,a
-	   ,@body)))
+     (if ,a
+       ,@body)))
 
 (define (take n lst)
   (if (or (equal? lst '())
           (<= n 0))
     (list)
     (cons (car lst)
-          (take (- n 1) (cdr lst)) ) ) )
+          (take (- n 1) (cdr lst)))))
 
 (define (drop n lst)
   (if (or (equal? lst '())
           (<= n 0))
     lst
-    (drop (- n 1) (cdr lst)) ) ) 
+    (drop (- n 1) (cdr lst)))) 
 
 (define (split-at n lst)
   (list (take n lst)
@@ -32,7 +32,7 @@
          [l (length s)])
     (if (= n l)
       (cons s (partition n (drop n lst)))
-      (list) ) ) )
+      (list))))
 
 (define (print . args)
   (for-each display args))
@@ -43,10 +43,10 @@
 
 (define (string-join delim lst)
   (define (interpose delim lst)
-	(if (null? lst)
-		lst
-		(cons delim
-			  (cons (car lst) (interpose delim (cdr lst))))))
+    (if (null? lst)
+        lst
+        (cons delim
+              (cons (car lst) (interpose delim (cdr lst))))))
   (if (null? lst)
-	""
-	(apply string-append (cdr (interpose delim lst)))))
+    ""
+    (apply string-append (cdr (interpose delim lst)))))

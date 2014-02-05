@@ -1,6 +1,6 @@
 /*
  * Fl_Highlight_Editor - extensible text editing widget
- * Copyright (c) 2013 Sanel Zukan.
+ * Copyright (c) 2013-2014 Sanel Zukan.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -323,7 +323,7 @@ static pointer _rx_match(scheme *s, pointer args) {
 
 static pointer _file_exists(scheme *s, pointer args) {
 	pointer arg = s->vptr->pair_car(args);
-	SCHEME_RET_IF_FAIL(s, arg != s->NIL, "Expected string object as first argument.");
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_string(arg), "Expected string object as first argument.");
 
 	int ret = access(s->vptr->string_value(arg), F_OK);
 	return ret == 0 ? s->T : s->F;
@@ -331,7 +331,7 @@ static pointer _file_exists(scheme *s, pointer args) {
 
 static pointer _system(scheme *s, pointer args) {
 	pointer arg = s->vptr->pair_car(args);
-	SCHEME_RET_IF_FAIL(s, arg != s->NIL, "Expected string object as first argument.");
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_string(arg), "Expected string object as first argument.");
 
 	int ret = system(s->vptr->string_value(arg));
 	return s->vptr->mk_integer(s, ret);

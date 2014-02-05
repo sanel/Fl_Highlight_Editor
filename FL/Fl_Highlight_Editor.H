@@ -1,6 +1,6 @@
 /*
  * Fl_Highlight_Editor - extensible text editing widget
- * Copyright (c) 2013 Sanel Zukan.
+ * Copyright (c) 2013-2014 Sanel Zukan.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
