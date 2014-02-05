@@ -192,7 +192,7 @@
 ;;; default themes
 
 (define (default-lite-theme)
-  (editor-set-background-color FL_LIGHT1)
+  (editor-set-background-color FL_WHITE)
   (set! *editor-face-table*
     (list
 	  (vector 'default-face FL_BLACK 12 FL_HELVETICA)
@@ -207,7 +207,7 @@
   (editor-set-background-color FL_BLACK)
   (set! *editor-face-table*
     (list
-	  (vector 'default-face FL_DARK1 12 FL_HELVETICA)
+	  (vector 'default-face FL_WHITE 12 FL_HELVETICA)
 	  (vector 'comment-face FL_RED   12 FL_HELVETICA)
 	  (vector 'keyword-face FL_BLUE  12 FL_HELVETICA)
 	  (vector 'important-face FL_BLUE 12 FL_HELVETICA_BOLD)
