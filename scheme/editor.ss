@@ -85,16 +85,16 @@
 
 ;(define-macro (define-mode mode doc . args)
 ;  `(let ([syn (lambda (type what face)
-;			   (vector
-;				 (case type
-;				   [(default) 0]
-;				   [(eol) 1]
-;				   [(block) 2]
-;				   [(regex) 3]
-;				   [(exact) 4]
-;				   [else (error 'syn "Unrecognized context type:" type "in expression" ',args)])
-;				what face))])
-;	 (set! *editor-context-table* (list ,@args))))
+;              (vector
+;                (case type
+;                  [(default) 0]
+;                  [(eol) 1]
+;                  [(block) 2]
+;                  [(regex) 3]
+;                  [(exact) 4]
+;                  [else (error 'syn "Unrecognized context type:" type "in expression" ',args)])
+;               what face))])
+;    (set! *editor-context-table* (list ,@args))))
 
 (define (define-mode-lowlevel mode doc . args)
   (let1 ret '()
@@ -119,9 +119,9 @@
                         [else
                           (error 'define-mode "Unrecognized context type:" (cadr x) "in expression:" x)])]
                   [what (let1 tmp (list-ref x 2)
-						  (cond
-						    [(quoted? tmp) (eval tmp)]
-						    [else tmp]))]
+                          (cond
+                            [(quoted? tmp) (eval tmp)]
+                            [else tmp]))]
                   [face (list-ref x 3)]
                   [face (if (quoted? face) (eval face) face)])
              (add-to-list! ret (vector num what face)))]
@@ -138,6 +138,20 @@
 (define-macro (define-mode mode doc . args)
   `(define-mode-lowlevel ',mode ,doc ',args))
 
+(define (editor-try-load-mode mode)
+  (if (and *editor-current-mode*
+           (string=? *editor-current-mode* mode))
+      #t ;; return true so we knows mode is already loaded
+      (let1 path (editor-find-file (string-append mode ".ss"))
+        (if path
+          (begin
+            (println "Loading mode " mode)
+            (load path)
+            ;; returns string (mode-name) so we knows mode is newly loaded
+            (set! *editor-current-mode* mode))
+          ;; return false if mode wasn't found
+          #f))))
+
 ;; load given mode by matching against filename
 (define-with-return (editor-try-load-mode-by-filename lst filename)
   (for-each
@@ -145,29 +159,25 @@
       (let* ([rx     (regex-compile (car item) '(RX_EXTENDED))]
              [match? (and rx (regex-match rx filename))])
         (when match?
-          (let ([mode (cond
-                        [(string? (cdr item)) (cdr item)]
-                        [(symbol? (cdr item)) (symbol->string (cdr item))]
-                        [else
-                          (error "Mode name not string or symbol")])])
-
-            (if (and *editor-current-mode*
-                     (string=? *editor-current-mode* mode))
-              (return #t)
-              (let1 path (editor-find-file (string-append mode ".ss"))
-                (when path
-                  (println "Loading mode " mode)
-                  (load path)
+          (let* ([mode (cond
+                         [(string? (cdr item)) (cdr item)]
+                         [(symbol? (cdr item)) (symbol->string (cdr item))]
+                         [else
+                           (error "Mode name not string or symbol")])]
+                 [state (editor-try-load-mode mode)])
+            (when state
+              (if (eq? state #t)
+                (return #t)
+                (begin
                   (editor-repaint-context-changed)
                   (editor-repaint-face-changed)
-                  (set! *editor-current-mode* mode)
 
                   ;; now load <mode-name>-hook variable if defined
                   (let* ([mode-hook-str (string-append mode "-hook")]
                          [mode-hook-sym (string->symbol mode-hook-str)])
                     (when (defined? mode-hook-sym)
-                      (editor-run-hook mode-hook-str (eval mode-hook-sym)) ) )
-                  (return #t) ) ) ) ) ) ) )
+                      (editor-run-hook mode-hook-str (eval mode-hook-sym))))
+                  (return #t))))))))
     lst))
 
 ;;; file types
@@ -179,7 +189,7 @@
     ("(\\.fl)$" . fltk-mode)
     ("(\\.ss|\\.scm|\\.scheme)$" . scheme-mode)
     ("(\\.ht|\\.htm|\\.html|\\.xhtml|\\.sgml)$" . html-mode)
-	("([mM]akefile|GNUMakefile|\\.make)$" . make-mode)))
+    ("([mM]akefile|GNUMakefile|\\.make)$" . make-mode)))
 
 ;; FIXME: register 'modes' subfolder; do this better
 (add-to-list! *load-path* (string-append (car *load-path*) "/modes"))
@@ -191,7 +201,7 @@
 
 (add-hook! *editor-after-loadfile-hook*
   (lambda (f)
-	(set-tab-width 4)))
+    (set-tab-width 4)))
 
 ;;; default themes
 
@@ -199,21 +209,21 @@
   (editor-set-background-color FL_WHITE)
   (set! *editor-face-table*
     (list
-	  (vector 'default-face FL_BLACK 12 FL_COURIER)
-	  (vector 'comment-face FL_BLUE  12 FL_COURIER)
-	  (vector 'keyword-face FL_BLUE  12 FL_COURIER)
-	  (vector 'important-face FL_BLUE 12 FL_COURIER_BOLD)
-	  (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
-	  (vector 'attribute-face FL_DARK_CYAN 12 FL_COURIER)
-	  (vector 'string-face FL_DARK_RED 12 FL_COURIER)
-	  (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER))))
+      (vector 'default-face FL_BLACK 12 FL_COURIER)
+      (vector 'comment-face FL_BLUE  12 FL_COURIER)
+      (vector 'keyword-face FL_BLUE  12 FL_COURIER)
+      (vector 'important-face FL_BLUE 12 FL_COURIER_BOLD)
+      (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
+      (vector 'attribute-face FL_DARK_CYAN 12 FL_COURIER)
+      (vector 'string-face FL_DARK_RED 12 FL_COURIER)
+      (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER))))
 
 (define (default-dark-theme)
   (editor-set-background-color FL_BLACK)
   (set! *editor-face-table*
     (list
-	  (vector 'default-face FL_GREEN 12 FL_COURIER)
-	  (vector 'keyword-face FL_BLUE   12 FL_COURIER))))
+      (vector 'default-face FL_GREEN 12 FL_COURIER)
+      (vector 'keyword-face FL_BLUE   12 FL_COURIER))))
 
 (default-lite-theme)
 

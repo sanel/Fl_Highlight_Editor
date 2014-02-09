@@ -1,6 +1,6 @@
 -*- org -*-
 
-* Known bugs [0/5]
+* Known bugs [0/6]
   - [ ] Block handling isn't good: if block is in multiple lines, due
     how optimized repaint routine hi_update() works, it will only
     match the first line since hi_update() will send only modified
@@ -25,5 +25,9 @@
     correct size. This can be fixed by adding (global-set-tab-width)
     that will store tab width globally (by widget instance) and apply
 	when buffer was created.
+
+  - [ ] When unknown file (or file for which mode isn't defined) was
+    loaded, latest used mode is used. This should be reverted to some
+    default look.
 	
 * Unknown bugs please report on https://github.com/sanel/Fl_Highlight_Editor/issues
