@@ -16,7 +16,7 @@ Fl_Highlight_Editor is a drop in replacement for
 widgets with ability to highlight the text and modify it with embeded
 [Scheme](http://en.wikipedia.org/wiki/Scheme_%20programming_language%20) scripting language.
 
-The widget is fully self-contained and it doesn't depends on anything
+The widget is fully self-contained and it doesn't depend on anything
 except FLTK library, making it suitable for embedding inside existing
 project.
 
@@ -37,7 +37,15 @@ and GNU make. Running:
 make
 ```
 
-will compile the code. To see it in action, run examples in *test* folder.
+will compile the code. To see it in action, run examples in *test*
+folder, e.g.:
+
+```
+./test/example README.md
+```
+
+will display content of `README.md` and highlight it with
+`markdown-mode`.
 
 If you would like to embed core Scheme files inside binary, keeping
 highlight code separate, you can run:
