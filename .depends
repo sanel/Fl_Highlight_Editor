@@ -1,0 +1,5 @@
+# MAKEDEPENDS
+
+src/Fl_Highlight_Editor.o: src/ts/scheme.h src/ts/scheme-private.h
+src/Fl_Highlight_Editor.o: src/ts/scheme.h src/ts/opdefines.h
+src/ts/scheme.o: src/ts/scheme-private.h src/ts/scheme.h src/ts/opdefines.h

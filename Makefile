@@ -1,4 +1,3 @@
-
 # Fl_Highlight_Editor - extensible text editing widget
 # Copyright (c) 2013-2014 Sanel Zukan.
 #
@@ -24,6 +23,13 @@ AR       = ar
 
 TARGET_LIB = lib/libfltk_highlight.a
 TESTS      = test/example test/repl
+SOURCE    = $(wildcard src/*.cxx) $(wildcard src/ts/*.c)
+OBJECTS   = $(patsubst %.c, %.o, $(patsubst %.cxx, %.o, $(SOURCE)))
+BUNDLED   = src/bundled_scripts.cxx
+
+DEPFILE   = .depends
+DEPTOKEN  = '\# MAKEDEPENDS'
+DEPFLAGS  = -Y -f $(DEPFILE) -s $(DEPTOKEN)
 
 all: $(TARGET_LIB) $(TESTS)
 
@@ -35,8 +41,6 @@ all: $(TARGET_LIB) $(TESTS)
 %.o: %.c
 	$(CC) $(CXXFLAGS) $(DEBUG) -c -o $@ $<
 
-OBJECTS = $(BUNDLED_SCRIPTS) src/Fl_Highlight_Editor.o src/ts/scheme.o
-
 ifeq ($(BUNDLE_SCRIPTS), 1)
 # NOTE: order is important, as everything will be zipped inside single file
 SCHEME_FILES =        \
@@ -46,9 +50,13 @@ SCHEME_FILES =        \
   scheme/editor.ss
 
 CXXFLAGS += -DUSE_BUNDLED_SCRIPTS
-BUNDLED_SCRIPTS = src/bundled_scripts.o
+# (wildcard) will not catch this
+SOURCE   += $(BUNDLED)
 
-src/bundled_scripts.cxx: $(SCHEME_FILES)
+# explicit dependency forcing make to generate bundle_scripts.cxx file
+$(OBJECTS): $(BUNDLED)
+
+$(BUNDLED): $(SCHEME_FILES)
 	./tools/gen-c-string.sh $(SCHEME_FILES) > $@
 endif
 
@@ -61,5 +69,16 @@ test/repl:    test/repl.o $(TARGET_LIB)
 clean:
 	rm -f $(TARGET_LIB)
 	rm -f src/*.o src/ts/*.o test/*.o
-	rm -f src/bundled_scripts.cxx
+	rm -f $(BUNDLED)
 	rm -f $(TESTS)
+
+# dependency management
+$(DEPFILE):
+	@touch $(DEPFILE)
+	makedepend $(DEPFLAGS) -- $(SOURCE) >&/dev/null
+
+depend:
+	rm -f $(DEPFILE)
+	make $(DEPFILE)
+
+sinclude $(DEPFILE)
