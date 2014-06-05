@@ -1,6 +1,6 @@
 -*- org -*-
 
-* Known bugs [0/6]
+* Known bugs [1/6]
   - [ ] Block handling isn't good: if block is in multiple lines, due
     how optimized repaint routine hi_update() works, it will only
     match the first line since hi_update() will send only modified
@@ -17,7 +17,7 @@
     can be solved by using scheme_init_custom_alloc() and tracking
     malloc/free calls, where the rest will be free-ed in widget destructor.
 	
-  - [ ] Inside '(syn ...)' construct it is not possible to evaluate
+  - [X] Inside '(syn ...)' construct it is not possible to evaluate
     forms nor to get variables for top environment.
 
   - [ ] (set-tab-width) and (get-tab-width) works only when buffer

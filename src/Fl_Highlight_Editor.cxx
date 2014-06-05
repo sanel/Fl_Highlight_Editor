@@ -538,8 +538,11 @@ static pointer _editor_set_fltk_font_face(scheme *s, pointer args) {
 					   "Expected string as second argument.");
 
 	font_name = s->vptr->string_value(arg);
+	/*
+	 * TODO: set_font() requires 'font_name' to be in static memory; for now is stored inside
+	 * tinyscheme memory, so I'm not sure will it be erased at some point.
+	 */
 	Fl::set_font(fltk_font, font_name);
-
 	return s->T;
 }
 
