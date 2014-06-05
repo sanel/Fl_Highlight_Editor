@@ -24,6 +24,7 @@
 #include <stdarg.h>
 #include <limits.h>
 #include <FL/Fl_Highlight_Editor.H>
+#include <FL/Fl.H>
 
 #include "ts/scheme.h"
 #include "ts/scheme-private.h"
@@ -485,11 +486,60 @@ static pointer _editor_set_background_color(scheme *s, pointer args) {
 	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
 	pointer arg = s->vptr->pair_car(args);
 
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL, "This function expects argument.");
+
+	int c;
+	if(s->vptr->is_integer(arg))
+		c = s->vptr->ivalue(arg);
+	else if(s->vptr->is_string(arg))
+		c = named_to_fltk_color(s->vptr->string_value(arg), FL_BLACK);
+	else {
+		SCHEME_RET_IF_FAIL(s, false, "This function expects number or string argument.");
+		return s->F;
+	}
+
+	priv->self->color(c, FL_SELECTION_COLOR);
+	return s->T;
+}
+
+static pointer _editor_set_cursor_color(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL, "This function expects argument.");
+
+	int c;
+	if(s->vptr->is_integer(arg))
+		c = s->vptr->ivalue(arg);
+	else if(s->vptr->is_string(arg))
+		c = named_to_fltk_color(s->vptr->string_value(arg), FL_BLACK);
+	else {
+		SCHEME_RET_IF_FAIL(s, false, "This function expects number or string argument.");
+		return s->F;
+	}
+
+	priv->self->cursor_color(c);
+	return s->T;
+}
+
+static pointer _editor_set_fltk_font_face(scheme *s, pointer args) {
+	pointer arg = s->vptr->pair_car(args);
 	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_integer(arg),
 					   "Expected number as first argument.");
+	int        fltk_font;
+	const char *font_name;
 
-	int c = s->vptr->ivalue(arg);
-	priv->self->color(c, FL_SELECTION_COLOR);
+	fltk_font = s->vptr->ivalue(arg);
+	args = s->vptr->pair_cdr(args);
+	arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_string(arg),
+					   "Expected string as second argument.");
+
+	font_name = s->vptr->string_value(arg);
+	Fl::set_font(fltk_font, font_name);
+
 	return s->T;
 }
 
@@ -554,6 +604,8 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	SCHEME_DEFINE2(s, _editor_repaint_context_chaged, "editor-repaint-context-changed", "Update global context table and redraw.");
 	SCHEME_DEFINE2(s, _editor_repaint_face_chaged, "editor-repaint-face-changed", "Update global face table and redraw.");
 	SCHEME_DEFINE2(s, _editor_set_background_color, "editor-set-background-color", "Set editor background color. FLTK colors codes are accepted.");
+	SCHEME_DEFINE2(s, _editor_set_cursor_color, "editor-set-cursor-color", "Set cursor color.");
+	SCHEME_DEFINE2(s, _editor_set_fltk_font_face, "editor-set-fltk-font-face", "Change FLTK font by assigning it font name.");
 
 	/* for debugging */
 	SCHEME_DEFINE2(s, _editor_dump_style_table, "editor-dump-style-table", "Returns internal copy of style table. For debugging purposes.");
