@@ -121,9 +121,6 @@ public:
 	 */ 
 	int savefile(const char *file, int buflen = 128 * 1024);
 
-	/** Overriden Fl_Text_Editor method for drawing. */
-	void draw(void);
-
 	/** Overriden Fl_Text_Editor method for handling events. */
 	int handle(int event);
 };

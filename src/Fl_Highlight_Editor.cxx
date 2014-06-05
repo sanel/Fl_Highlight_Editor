@@ -1183,10 +1183,6 @@ int Fl_Highlight_Editor::savefile(const char *file, int buflen) {
 	return ret;
 }
 
-void Fl_Highlight_Editor::draw(void) {
-	Fl_Text_Editor::draw();
-}
-
 int Fl_Highlight_Editor::handle(int e) {
 	int ret = Fl_Text_Editor::handle(e);
 	return ret;
