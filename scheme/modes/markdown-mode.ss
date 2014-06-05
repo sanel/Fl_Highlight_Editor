@@ -1,5 +1,6 @@
-(set! *editor-context-table*
-  '(#(0 #f               default-face)
-	#(1 "#"              important-face)
-	#(2 ("```" . "```")  comment-face)
-	#(3 "\\[.*?\\]\\(.*?\\)" keyword-face)))
+(define-mode markdown-mode
+  "Mode for editing files with markdown syntax."
+  (syn 'default #f 'default-face)
+  (syn 'eol "#" 'important-face)
+  (syn 'block '("```" . "```")  'comment-face)
+  (syn 'regex "\\[.*?\\]\\(.*?\\)" 'keyword-face))

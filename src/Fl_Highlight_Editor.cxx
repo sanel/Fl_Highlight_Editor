@@ -62,7 +62,7 @@ enum {
 /*
  * This is table where are are stored rules for syntax highlighting. Syntax highlighting is done
  * by applying a couple of strategies:
- * 
+ *
  *  1) block matching - done by searching strings marked as block start and block end. Block matching is
  *     used for (example) block comments and will behave like Vim - if block start was found but not block end,
  *     the whole buffer from that position will be painted in given face.
@@ -147,9 +147,9 @@ static int regcomp_safe(regex_t *preg, const char *regex, int cflags) {
 
 #define SCHEME_RET_IF_FAIL(scm, expr, str)      \
   do {                                          \
-    if(!(expr)) {                               \
-      return scheme_error(scm, NULL, str);      \
-    }                                           \
+	if(!(expr)) {                               \
+	  return scheme_error(scm, NULL, str);      \
+	}                                           \
   } while(0)
 
 #define scheme_list_len(sc, lst) list_length((sc), (lst))
@@ -157,15 +157,66 @@ static int regcomp_safe(regex_t *preg, const char *regex, int cflags) {
 #define SCHEME_DEFINE(sc, func_ptr, func_name)							\
 	sc->vptr->scheme_define(sc, sc->global_env,							\
 							sc->vptr->mk_symbol(sc, func_name),			\
-							sc->vptr->mk_foreign_func(sc, func_ptr))  
+							sc->vptr->mk_foreign_func(sc, func_ptr))
 
 #define SCHEME_DEFINE2(sc, func_ptr, func_name, doc) \
 	SCHEME_DEFINE(sc, func_ptr, func_name)
 
 #define SCHEME_DEFINE_VAR(sc, symname, value) scheme_define((sc), (sc)->global_env, (sc)->vptr->mk_symbol((sc), symname), value)
 
+/* Stolen from Fl_Help_View.cxx, Copyright 1997-2010 by Easy Software Products. */
+Fl_Color named_to_fltk_color(const char *n, Fl_Color ret) {
+	static const struct {
+		const char *name;
+		int r, g, b;
+	} colors[] = {
+		{ "black",		0x00, 0x00, 0x00 },
+		{ "red",		0xff, 0x00, 0x00 },
+		{ "green",		0x00, 0x80, 0x00 },
+		{ "yellow",		0xff, 0xff, 0x00 },
+		{ "blue",		0x00, 0x00, 0xff },
+		{ "magenta",	0xff, 0x00, 0xff },
+		{ "fuchsia",	0xff, 0x00, 0xff },
+		{ "cyan",		0x00, 0xff, 0xff },
+		{ "aqua",		0x00, 0xff, 0xff },
+		{ "white",		0xff, 0xff, 0xff },
+		{ "gray",		0x80, 0x80, 0x80 },
+		{ "grey",		0x80, 0x80, 0x80 },
+		{ "lime",		0x00, 0xff, 0x00 },
+		{ "maroon",		0x80, 0x00, 0x00 },
+		{ "navy",		0x00, 0x00, 0x80 },
+		{ "olive",		0x80, 0x80, 0x00 },
+		{ "purple",		0x80, 0x00, 0x80 },
+		{ "silver",		0xc0, 0xc0, 0xc0 },
+		{ "teal",		0x00, 0x80, 0x80 }
+	};
+
+	if(!n || !n[0]) return ret;
+
+	if(n[0] == '#') {
+		int r, g, b, rgb;
+		rgb = strtol(n + 1, NULL, 16);
+		if(strlen(n) > 4) {
+			r = rgb >> 16;
+			g = (rgb >> 8) & 255;
+			b = rgb & 255;
+		} else {
+			r = (rgb >> 8) * 17;
+			g = ((rgb >> 4) & 15) * 17;
+			b = (rgb & 15) * 17;
+		}
+		return (fl_rgb_color((uchar)r, (uchar)g, (uchar)b));
+	} else {
+		for (int i = 0; i < (int)(sizeof(colors) / sizeof(colors[0])); i ++)
+			if (!strcasecmp(n, colors[i].name))
+				return fl_rgb_color(colors[i].r, colors[i].g, colors[i].b);
+	}
+
+	return ret;
+}
+
 static pointer scheme_error(scheme *sc, const char *tag, const char *str) {
-	if(tag) 
+	if(tag)
 		printf("Error: -- %s %s\n", tag, str);
 	else
 		printf("Error: s %s\n", str);
@@ -521,8 +572,8 @@ Fl_Highlight_Editor_P::Fl_Highlight_Editor_P() {
 	styletable_size = styletable_last = 0;
 	loaded_context_and_faces = false;
 	update_cb_added = false;
-
-	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE); /* initial 'A' - plain */
+	/* initial 'A' - plain */
+	push_style_default(FL_BLACK, FL_COURIER, FL_NORMAL_SIZE);
 }
 
 int Fl_Highlight_Editor_P::push_style(int color, int font, int size) {
@@ -569,7 +620,7 @@ void Fl_Highlight_Editor_P::clear_styles(void) {
 }
 
 #define FREE_AND_RETURN(o)	\
-	delete o;			    \
+	delete o;			\
 	return;
 
 void Fl_Highlight_Editor_P::push_context(scheme *s, int type, pointer content, const char *face) {
@@ -815,7 +866,7 @@ static Fl_Highlight_Editor_P *load_face_table(Fl_Highlight_Editor_P *priv) {
 	const char *face;
 	pointer o, v, face_table = scheme_eval(s, s->vptr->mk_symbol(s, "*editor-face-table*"));
 	int font = 0, color = 0, size = 0;
-	
+
 	for(pointer it = face_table; it != s->NIL; it = s->vptr->pair_cdr(it)) {
 		v = s->vptr->pair_car(it);
 
@@ -828,7 +879,15 @@ static Fl_Highlight_Editor_P *load_face_table(Fl_Highlight_Editor_P *priv) {
 
 		face = s->vptr->is_string(o) ? s->vptr->string_value(o) : s->vptr->symname(o);
 
-		VECTOR_GET_INT(s, v, 1, o, color);
+		/* we support both FLTK and html colors */
+		o = s->vptr->vector_elem(v, 1);
+		if(s->vptr->is_integer(o))
+			color = s->vptr->ivalue(o);
+		else if(s->vptr->is_string(o))
+			color = named_to_fltk_color(s->vptr->string_value(o), FL_BLACK);
+		else
+			continue;
+
 		VECTOR_GET_INT(s, v, 2, o, size);
 		VECTOR_GET_INT(s, v, 3, o, font);
 
@@ -1036,6 +1095,7 @@ static void hi_update(int pos, int ninserted, int ndeleted,
 		priv->self->redisplay_range(start, end);
 	}
 
+
 	free(text);
 	free(style);
 }
@@ -1083,8 +1143,9 @@ void Fl_Highlight_Editor::repaint(int what, const char *mode) {
 	}
 
 	/* notify Fl_Text_Display highligher about styletable changes */
-	if(what & Fl_Highlight_Editor::REPAINT_STYLE) 
+	if(what & Fl_Highlight_Editor::REPAINT_STYLE) {
 		highlight_data(priv->stylebuf, priv->styletable, priv->styletable_last, 'A', 0, 0);
+	}
 
 	if(!priv->update_cb_added) {
 		buffer()->add_modify_callback(hi_update, priv);
@@ -1120,6 +1181,10 @@ int Fl_Highlight_Editor::savefile(const char *file, int buflen) {
 
 	if(priv) scheme_run_hook(priv->scm, "*editor-after-savefile-hook*", scheme_argsf(priv->scm, "s", file));
 	return ret;
+}
+
+void Fl_Highlight_Editor::draw(void) {
+	Fl_Text_Editor::draw();
 }
 
 int Fl_Highlight_Editor::handle(int e) {
