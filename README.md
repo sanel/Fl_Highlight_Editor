@@ -13,7 +13,7 @@ Extensible and customizable editing widget for
 Fl_Highlight_Editor is a drop in replacement for
 [Fl_Text_Editor](http://www.fltk.org/doc-1.3/classFl__Text__Editor.html) and
 [Fl_Text_Display](http://www.fltk.org/doc-1.3/classFl__Text__Display.html)
-widgets with ability to highlight the text and modify it with embeded
+widgets with ability to highlight the text and modify it with embedded
 [Scheme](http://en.wikipedia.org/wiki/Scheme_%20programming_language%20) scripting language.
 
 The widget is fully self-contained and it doesn't depend on anything

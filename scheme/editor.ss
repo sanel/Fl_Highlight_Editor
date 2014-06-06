@@ -196,11 +196,12 @@
   (editor-set-cursor-shape 'normal)
   (set! *editor-face-table*
     (list
-      (vector 'default-face "#a4a3a3" 14 FL_COURIER)
-      (vector 'keyword-face "#d9bd4d" 14 FL_COURIER)
-      (vector 'comment-face "#7772d4" 14 FL_COURIER)
-      (vector 'macro-face   "#fe8592" 14 FL_COURIER)
-	  (vector 'string-face  "#60ffa6" 14 FL_COURIER))))
+      (vector 'default-face "#a4a3a3" 12 FL_COURIER)
+      (vector 'keyword-face "#d9bd4d" 12 FL_COURIER)
+      (vector 'comment-face "#7772d4" 12 FL_COURIER)
+      (vector 'macro-face   "#fe8592" 12 FL_COURIER)
+      (vector 'important-face "#bd3e3e" 12 FL_COURIER_BOLD)
+	  (vector 'string-face  "#60ffa6" 12 FL_COURIER))))
 
 ;;; theme
 (default-theme-dark)
