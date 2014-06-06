@@ -73,7 +73,6 @@
   (goto-char (- (point) n)))
 
 ;; (buffer-file-name)
-
 (define (buffer-file-name)
   *editor-buffer-file-name*)
 
@@ -169,8 +168,16 @@
 
 ;;; default themes
 
-(define (default-lite-theme)
+;(define-theme molokai
+;  "Molokai theme sample."
+;  (face 'default-face "white" 12 FL_COURIER)
+;  (face 'comment-face "blue"  12 FL_COURIER)
+;  (face 'keyword-face FL_BLUE 12 FL_COURIER)
+;  (face 'macro-face   FL_DARK_CYAN 12 FL_COURIER))
+
+(define (default-theme-lite)
   (editor-set-background-color FL_WHITE)
+  (editor-set-cursor-color FL_BLACK)
   (set! *editor-face-table*
     (list
       (vector 'default-face FL_WHITE 12 FL_COURIER)
@@ -183,14 +190,18 @@
       (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER)
       (vector 'parentheses-face FL_INACTIVE_COLOR 12 FL_COURIER))))
 
-(define (default-dark-theme)
+(define (default-theme-dark)
   (editor-set-background-color FL_BLACK)
-  (editor-set-cursor-color FL_WHITE)
+  (editor-set-cursor-color FL_GREEN)
+  (editor-set-cursor-shape 'normal)
   (set! *editor-face-table*
     (list
-      (vector 'default-face FL_GRAY0  14 FL_COURIER)
-      (vector 'keyword-face FL_YELLOW 14 FL_COURIER)
-      (vector 'comment-face FL_CYAN   14 FL_COURIER))))
+      (vector 'default-face "#a4a3a3" 14 FL_COURIER)
+      (vector 'keyword-face "#d9bd4d" 14 FL_COURIER)
+      (vector 'comment-face "#7772d4" 14 FL_COURIER)
+      (vector 'macro-face   "#fe8592" 14 FL_COURIER)
+	  (vector 'string-face  "#60ffa6" 14 FL_COURIER))))
 
 ;;; theme
-(default-dark-theme)
+(default-theme-dark)
+(set-tab-expand #t)

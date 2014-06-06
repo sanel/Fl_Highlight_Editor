@@ -42,6 +42,8 @@ struct Fl_Highlight_Editor_P;
 class FL_EXPORT Fl_Highlight_Editor : public Fl_Text_Editor {
 private:
 	Fl_Highlight_Editor_P *priv;
+	int do_expand_tabs;
+	static int tab_press(int c, Fl_Text_Editor *e);
 public:
 	enum {
 		REPAINT_CONTEXT = (1 << 1),
@@ -67,7 +69,7 @@ public:
 	/**
 	 * Load Scheme file and interpret it. This function can be used to load additional scripts
 	 * (e.g. user customized) from home folder or other location.
-	 * 
+	 *
 	 * Make sure init_interpreter() was called before this call.
 	 */
 	void load_script_file(const char *path);
@@ -89,6 +91,15 @@ public:
 
 	/** Return currently set Fl_Text_Buffer object. */
 	Fl_Text_Buffer *buffer(void) { return Fl_Text_Editor::buffer(); }
+
+	/**
+	 * After was set to true, tabs will be expanded to set number of spaces, depending on tab_distance() from
+	 * given buffer.
+	 */
+	void expand_tabs(int e) { do_expand_tabs = e; }
+
+	/** Check if object is in expanding tabs mode. */
+	int expand_tabs(void) const  { return do_expand_tabs; }
 
 	/**
 	 * This function will (re)load face and context tables and apply highlighting based on their content.
@@ -118,7 +129,7 @@ public:
 	 * file was successfully saved, it will call <b>*editor-after-savefile-hook*</b>.
 	 *
 	 * This function returns the same values as Fl_Text_Buffer::savefile().
-	 */ 
+	 */
 	int savefile(const char *file, int buflen = 128 * 1024);
 
 	/** Overriden Fl_Text_Editor method for handling events. */

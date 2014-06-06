@@ -220,7 +220,7 @@ static pointer scheme_error(scheme *sc, const char *tag, const char *str) {
 	if(tag)
 		printf("Error: -- %s %s\n", tag, str);
 	else
-		printf("Error: s %s\n", str);
+		printf("Error: %s\n", str);
 
 	return sc->F;
 }
@@ -465,6 +465,15 @@ static pointer _get_tab_width(scheme *s, pointer args) {
 	return s->vptr->mk_integer(s, ret);
 }
 
+static pointer _set_tab_expand(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	priv->self->expand_tabs(arg == s->T);
+	return s->T;
+}
+
 static pointer _editor_repaint_context_chaged(scheme *s, pointer args) {
 	ASSERT(s->ext_data != NULL);
 	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
@@ -520,6 +529,35 @@ static pointer _editor_set_cursor_color(scheme *s, pointer args) {
 	}
 
 	priv->self->cursor_color(c);
+	return s->T;
+}
+
+static pointer _editor_set_cursor_shape(scheme *s, pointer args) {
+	ASSERT(s->ext_data != NULL);
+	Fl_Highlight_Editor_P *priv = (Fl_Highlight_Editor_P*)(s->ext_data);
+	pointer arg = s->vptr->pair_car(args);
+
+	SCHEME_RET_IF_FAIL(s, arg != s->NIL && s->vptr->is_symbol(arg),
+					   "This function expects symbol as argument.");
+
+	const char *sym = (const char*)s->vptr->symname(arg);
+	int c = Fl_Text_Display::NORMAL_CURSOR;
+
+	if(STR_CMP(sym, "normal")) {
+		/* default; not setting anything for self-documentation purpose */
+	} else if(STR_CMP(sym, "caret")) {
+		c = Fl_Text_Display::CARET_CURSOR;
+	} else if(STR_CMP(sym, "dim")) {
+		c = Fl_Text_Display::DIM_CURSOR;
+	} else if(STR_CMP(sym, "block")) {
+		c = Fl_Text_Display::BLOCK_CURSOR;
+	} else if(STR_CMP(sym, "heavy")) {
+		c = Fl_Text_Display::HEAVY_CURSOR;
+	} else {
+		SCHEME_RET_IF_FAIL(s, false, "Cursor type not in 'caret/dim/block/heavy' form");
+	}
+
+	priv->self->cursor_style(c);
 	return s->T;
 }
 
@@ -604,10 +642,12 @@ static void init_scheme_prelude(scheme *s, Fl_Highlight_Editor_P *priv) {
 	SCHEME_DEFINE2(s, _end_of_line, "end-of-line", "Move cursor to end of line.");
 	SCHEME_DEFINE2(s, _set_tab_width, "set-tab-width", "Set TAB width.");
 	SCHEME_DEFINE2(s, _get_tab_width, "get-tab-width", "Get TAB width. If buffer not available, returns -1.");
+	SCHEME_DEFINE2(s, _set_tab_expand, "set-tab-expand", "Replace TAB with spaces. Uses TAB width.");
 	SCHEME_DEFINE2(s, _editor_repaint_context_chaged, "editor-repaint-context-changed", "Update global context table and redraw.");
 	SCHEME_DEFINE2(s, _editor_repaint_face_chaged, "editor-repaint-face-changed", "Update global face table and redraw.");
 	SCHEME_DEFINE2(s, _editor_set_background_color, "editor-set-background-color", "Set editor background color. FLTK colors codes are accepted.");
 	SCHEME_DEFINE2(s, _editor_set_cursor_color, "editor-set-cursor-color", "Set cursor color.");
+	SCHEME_DEFINE2(s, _editor_set_cursor_shape, "editor-set-cursor-shape", "Set cursor shape.");
 	SCHEME_DEFINE2(s, _editor_set_fltk_font_face, "editor-set-fltk-font-face", "Change FLTK font by assigning it font name.");
 
 	/* for debugging */
@@ -777,6 +817,8 @@ void Fl_Highlight_Editor_P::clear_contexts(void) {
 Fl_Highlight_Editor::Fl_Highlight_Editor(int X, int Y, int W, int H, const char *l) :
 	Fl_Text_Editor(X, Y, W, H, l), priv(NULL)
 {
+	do_expand_tabs = 0;
+	add_key_binding(FL_Tab, 0, Fl_Highlight_Editor::tab_press);
 }
 
 Fl_Highlight_Editor::~Fl_Highlight_Editor() {
@@ -1241,4 +1283,21 @@ int Fl_Highlight_Editor::savefile(const char *file, int buflen) {
 int Fl_Highlight_Editor::handle(int e) {
 	int ret = Fl_Text_Editor::handle(e);
 	return ret;
+}
+
+int Fl_Highlight_Editor::tab_press(int c, Fl_Text_Editor *e) {
+	Fl_Highlight_Editor *ed = (Fl_Highlight_Editor*)e;
+	if(!ed->expand_tabs()) return 0;
+	Fl_Text_Buffer *buf = ed->buffer();
+	if(!buf) return 0;
+
+	int i, tabsz = buf->tab_distance();
+	char *spaces = new char[tabsz + 1];
+	for(i = 0; i < tabsz; i++)
+		spaces[i] = ' ';
+	spaces[i] = '\0';
+
+	ed->insert(spaces);
+	delete [] spaces;
+	return 1;
 }
