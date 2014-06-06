@@ -1,6 +1,6 @@
 -*- org -*-
 
-* Known bugs [1/6]
+* Known bugs [1/7]
   - [ ] Block handling isn't good: if block is in multiple lines, due
     how optimized repaint routine hi_update() works, it will only
     match the first line since hi_update() will send only modified
@@ -29,5 +29,7 @@
   - [ ] When unknown file (or file for which mode isn't defined) was
     loaded, latest used mode is used. This should be reverted to some
     default look.
+
+  - [ ] Missing indent support.
 	
 * Unknown bugs please report on https://github.com/sanel/Fl_Highlight_Editor/issues
