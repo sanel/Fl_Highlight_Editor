@@ -163,7 +163,7 @@ Every mode you create should be invoked on some action and in this
 case the action is matching against file
 name. `*editor-auto-mode-table*` is Fl_Highlight_Editor global
 variable containing mappings of filenames (or regular expressions
-matching agains loaded file path) and modes: when loaded path has
+matching against loaded file path) and modes: when loaded path has
 successful match, associated mode will be loaded.
 
 Details about how this works check in
@@ -254,7 +254,7 @@ should work as expected.
 #### exact
 
 This rule type if for search exact strings inside text. Let say you
-are going to highlight all *FIXME:* words:
+are going to highlight all *FIXME:* words; to do that, you can use:
 
 ```scheme
 (syn 'exact "FIXME:" 'important-face)
@@ -265,12 +265,12 @@ are going to highlight all *FIXME:* words:
 This part will quickly explain internals and caveats about modes and
 rules.
 
-Fl_Highlight_Editor use hooks to determine when to load a mode so two
-of them are important:
+Fl_Highlight_Editor use hooks to determine when to load a mode; two of
+them are important:
 
-* `*editor-before-loadfile-hook*` - called before file was loaded in
+* `*editor-before-loadfile-hook*` - called before the file was loaded in
   widget
-* `*editor-after-loadfile-hook*` - called after file content was put
+* `*editor-after-loadfile-hook*` - called after the file content was put
   in widget
 
 `*editor-before-loadfile-hook*` will call
@@ -285,14 +285,14 @@ they can be changed without deleting the widget.
 
 Interpreter is involved only during mode loading and constructing
 matching rules; from there C++ code (including FLTK paint engine) will
-continue the work, using compiled expression, which will keep
+continue the work using compiled expression, which will keep
 highlighting fast.
 
 #### Rule executing order
 
 Rules inside `define-mode` are executed *in order*, from top to bottom
-and that can affect painting strategy (or if used smartly, can do
-things that would require much more complex stuff in backend).
+and that can affect painting strategy. If used smartly, can do things
+that would require much more complex stuff in backend.
 
 ## Adding new faces
 
