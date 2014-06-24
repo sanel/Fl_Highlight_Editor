@@ -101,6 +101,15 @@
 (define-macro (define-mode mode doc . args)
   `(define-mode-lowlevel ',mode ,doc (list ,@args)))
 
+(define-macro (define-derived-mode mode parent doc . args)
+  (let ([var (gensym)])
+    `(begin
+       (editor-try-load-mode (symbol->string ',parent))
+       (let ([,var *editor-context-table*])
+         (set! *editor-context-table* (list ,@args))
+         (for-each (lambda (x) (add-to-list! *editor-context-table* x))
+                   (reverse ,var))))))
+
 (define (editor-try-load-mode mode)
   (if (and *editor-current-mode*
            (string=? *editor-current-mode* mode))
@@ -146,7 +155,8 @@
 ;;; file types
 
 (define *editor-auto-mode-table*
-  '(("(\\.[CchH]|\\.[hc]pp|\\.[hc]xx|\\.[hc]\\+\\+|\\.CC)$" . c-mode)
+  '(("(\\.[CchH])$" . c-mode)
+    ("(\\.[hHcC](pp|PP)|\\.[hc]xx|\.[hc]\\+\\+|\\.CC)$" . c++-mode)
     ("(\\.py|\\.pyc)$" . python-mode)
     ("(\\.md)$" . markdown-mode)
     ("(\\.fl)$" . fltk-mode)
@@ -180,15 +190,35 @@
   (editor-set-cursor-color FL_BLACK)
   (set! *editor-face-table*
     (list
-      (vector 'default-face FL_WHITE 12 FL_COURIER)
-      (vector 'comment-face FL_BLUE  12 FL_COURIER)
-      (vector 'keyword-face FL_BLUE  12 FL_COURIER)
-      (vector 'important-face FL_BLUE 12 FL_COURIER_BOLD)
-      (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
-      (vector 'attribute-face FL_DARK_CYAN 12 FL_COURIER)
-      (vector 'string-face FL_DARK_RED 12 FL_COURIER)
-      (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER)
-      (vector 'parentheses-face FL_INACTIVE_COLOR 12 FL_COURIER))))
+     (vector 'default-face FL_WHITE 12 FL_COURIER)
+     (vector 'comment-face FL_BLUE 12 FL_COURIER)
+     (vector 'warning-face FL_BLUE 12 FL_COURIER_BOLD)
+     (vector 'function-name-face FL_GREEN 12 FL_COURIER)
+     (vector 'variable-name-face FL_LIGHT1 12 FL_COURIER)
+     (vector 'keyword-face FL_BLUE 12 FL_COURIER)
+     (vector 'comment-face FL_BLUE 12 FL_COURIER)
+     (vector 'comment-delimiter-face FL_DARK_CYAN 12 FL_COURIER)
+     (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
+     (vector 'constant-face FL_DARK_CYAN 12 FL_COURIER)
+     (vector 'builtin-face FL_GREEN 12 FL_COURIER)
+     (vector 'preprocessor-face FL_DARK_CYAN 12 FL_COURIER)
+     (vector 'string-face FL_DARK_RED 12 FL_COURIER)
+     (vector 'doc-face FL_DARK_RED 12 FL_COURIER))))
+
+;(define (default-theme-lite)
+;  (editor-set-background-color FL_WHITE)
+;  (editor-set-cursor-color FL_BLACK)
+;  (set! *editor-face-table*
+;    (list
+;      (vector 'default-face FL_WHITE 12 FL_COURIER)
+;      (vector 'comment-face FL_BLUE  12 FL_COURIER)
+;      (vector 'keyword-face FL_BLUE  12 FL_COURIER)
+;      (vector 'important-face FL_BLUE 12 FL_COURIER_BOLD)
+;      (vector 'type-face FL_DARK_GREEN 12 FL_COURIER)
+;      (vector 'attribute-face FL_DARK_CYAN 12 FL_COURIER)
+;      (vector 'string-face FL_DARK_RED 12 FL_COURIER)
+;      (vector 'macro-face  FL_DARK_CYAN 12 FL_COURIER)
+;      (vector 'parentheses-face FL_INACTIVE_COLOR 12 FL_COURIER))))
 
 (define (default-theme-dark)
   (editor-set-background-color FL_BLACK)
@@ -201,8 +231,8 @@
       (vector 'comment-face "#7772d4" 12 FL_COURIER)
       (vector 'macro-face   "#fe8592" 12 FL_COURIER)
       (vector 'important-face "#bd3e3e" 12 FL_COURIER_BOLD)
-	  (vector 'string-face  "#60ffa6" 12 FL_COURIER))))
+      (vector 'string-face  "#60ffa6" 12 FL_COURIER))))
 
 ;;; theme
-(default-theme-dark)
+(default-theme-lite)
 (set-tab-expand #t)
